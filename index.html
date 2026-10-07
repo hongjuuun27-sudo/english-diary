@@ -247,6 +247,9 @@
   .sc.reading.lineonly .w, .sc.reading.lineonly .gloss{ opacity:1; }
   .sc.reading.lineonly{ background:var(--mark); box-shadow:0 0 0 2px var(--mark); border-radius:4px; -webkit-box-decoration-break:clone; box-decoration-break:clone; }
   .gloss{ color:var(--muted); font-size:.9em; }
+  /* 누른 단어(듣기 단계 · 듣기 탭 끊지 않고 듣기): 잠깐 배경이 켜졌다 사라짐 — 눌렸다는 표시 */
+  .sc .w.tapped{ opacity:1; border-radius:4px; animation:wTap .8s ease-out; }
+  @keyframes wTap{ 0%, 40%{ background:var(--mark); box-shadow:0 0 0 3px var(--mark); } 100%{ background:transparent; box-shadow:0 0 0 3px transparent; } }
 
   /* ---------- 듣기 단계 ---------- */
   .ls-bar{ display:flex; align-items:center; gap:10px; margin-top:18px; }
@@ -1121,8 +1124,57 @@ function keepInView(w) {
   if (!box || !w.getClientRects().length) return;
   const r = w.getBoundingClientRect(), b = box.getBoundingClientRect();
   if (r.top < b.top + 12 || r.bottom > b.bottom - 48) {
-    box.scrollTo({ top: Math.max(0, box.scrollTop + r.top - b.top - b.height * 0.35), behavior: "smooth" });
+    autoScroll(box, box.scrollTop + r.top - b.top - b.height * 0.35);
   }
+}
+/* 앱이 직접 하는 스크롤(읽는 단어·문장·문단을 따라감) — 표시해 둬서 tapGuard가 손가락 스크롤로 착각하지 않게. now = 바로(부드럽지 않게) */
+function autoScroll(box, top, now) {
+  box._autoAt = performance.now();
+  if (now) box.scrollTop = Math.max(0, top); else box.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+}
+/* 단어 누르기(듣기 단계 · 듣기 탭 끊지 않고 듣기) — 스크롤하다 실수로 눌리지 않게: 스크롤하는 상자(box)마다 하나.
+   누르는 동안 손가락이 10px 넘게 움직였거나, 손가락으로 민 스크롤이 아직 흐르는 중(멈춘 지 0.25초 안)에 누른 건 무시(누르면 스크롤만 멈춤).
+   재생 중 화면이 저절로 따라 내려가는 스크롤은 손가락으로 민 게 아니라서 막지 않음. 돌려주는 함수 = 이번 누르기를 받아도 되는지 */
+function tapGuard(box) {
+  const g = { armed: false, down: false, moved: false, late: false, x: 0, y: 0, dragEnd: -1e9, flow: -1e9 };
+  const opt = { passive: true };
+  box.addEventListener("pointerdown", e => {
+    g.armed = true; g.down = true; g.moved = false; g.x = e.clientX; g.y = e.clientY;
+    g.late = performance.now() - g.flow < 250;
+  }, opt);
+  box.addEventListener("pointermove", e => { if (g.down && Math.hypot(e.clientX - g.x, e.clientY - g.y) > 10) g.moved = true; }, opt);
+  const up = e => {
+    if (!g.down) return;
+    g.down = false;
+    if (g.moved || e.type === "pointercancel") { g.moved = true; g.dragEnd = performance.now(); }   // pointercancel = 브라우저가 스크롤로 가져감
+  };
+  box.addEventListener("pointerup", up, opt);
+  box.addEventListener("pointercancel", up, opt);
+  box.addEventListener("scroll", () => {
+    const t = performance.now();
+    if (g.down || (t - g.dragEnd < 2000 && !((box._autoAt || -1e9) >= g.dragEnd))) g.flow = t;   // 손가락을 뗀 뒤 앱이 스크롤을 시작했으면 그건 앱 것(관성은 거기서 끊김)
+  }, opt);
+  return () => { const a = g.armed; g.armed = false; return !a || (!g.moved && !g.late); };
+}
+/* 누른 곳의 단어 — 단어를 정확히 안 눌러도(단어 사이 빈칸·줄 사이) 영어 칸(area) 안에서 28px 안의 가장 가까운 단어 */
+function wordAtTap(e, area) {
+  const hit = e.target.closest(".sc .w");
+  if (hit && area.contains(hit)) return hit;
+  let best = null, bd = 28;
+  area.querySelectorAll(".sc .w").forEach(w => {
+    for (const r of w.getClientRects()) {
+      const d = Math.hypot(Math.max(r.left - e.clientX, 0, e.clientX - r.right), Math.max(r.top - e.clientY, 0, e.clientY - r.bottom));
+      if (d < bd) { bd = d; best = w; }
+    }
+  });
+  return best;
+}
+function flashWord(w) {
+  w.classList.remove("tapped");
+  void w.offsetWidth;                                                         // 같은 단어를 또 눌러도 다시 반짝이게
+  w.classList.add("tapped");
+  clearTimeout(w._tapT);
+  w._tapT = setTimeout(() => w.classList.remove("tapped"), 850);
 }
 /* 문장 목록 재생기: createReader({ items: () => [{ el: .sc, btn? }], rate, gap(ms), tapSingle, onItem(i), onEnd(끝까지?), onChange(state) })
    play(i, w, single) · seek(i, w)(단어 탭) · toggle · pause · resume · stop · state() → { active, paused, single, index } */
@@ -1953,7 +2005,7 @@ function setupListen() {
       const r = rows()[i];
       if (r) {                                                                // 그 문장이 보이게
         const b = FL.body.getBoundingClientRect(), rr = r.getBoundingClientRect();
-        if (rr.top < b.top + 8 || rr.bottom > b.bottom - 8) FL.body.scrollTo({ top: FL.body.scrollTop + rr.top - b.top - 12, behavior: "smooth" });
+        if (rr.top < b.top + 8 || rr.bottom > b.bottom - 8) autoScroll(FL.body, FL.body.scrollTop + rr.top - b.top - 12);
       }
     },
     onEnd: () => mark(-1),
@@ -1999,9 +2051,14 @@ FL.body.addEventListener("click", e => {
     if (s.active && s.index === i && s.single) F.rd.stop(); else F.rd.play(i, 0, true);
     return;
   }
-  const w = t.closest(".sc .w"), row = t.closest(".ls-row");
-  if (w && row) F.rd.seek(+row.dataset.i, +w.dataset.w);
+  const row = t.closest(".ls-row"), area = row && t.closest(".pe");          // 단어 = 그 단어부터(가까운 단어도, 스크롤하다 눌린 건 무시)
+  if (!area || !lsTapOk()) return;
+  const w = wordAtTap(e, area);
+  if (!w) return;
+  flashWord(w);
+  F.rd.seek(+row.dataset.i, +w.dataset.w);
 });
+const lsTapOk = tapGuard(FL.body);
 /* 첨삭 결과 확인: 문장 짝(한글은 바로 고칠 수 있음) + 개수 경고 + 상황 묘사 */
 function checkHtml(it) {
   const ps = it.pairs || [];
@@ -2370,6 +2427,7 @@ $("logPage").addEventListener("click", e => {
    재생 화면(#drive, 탭 바를 덮음): 질문(영어, 한글 작게) → 그 질문의 최종본 → 다음 질문 … 끝까지 이어서.
      끊지 않고 듣기(2026-10-08) = 문단마다 음성 하나(paraList — 원래 글의 빈 줄로 문단을 나눔, ElevenLabs로 문단을 통째로 만들어 저장).
        화면은 질문 하나를 글로(질문 → 문단마다 영어 + 아래 한국어, 사이 구분선, 지금 문단 노래방식 — dvShowBlock). 질문 → 문단 0.45초, 문단 사이 0.7초.
+       단어를 누르면 그 단어부터(dvSeek — 타임스탬프로 그 자리, 다른 문단이면 그 음성으로, 일시정지·끝이면 거기서 재생 · 2026-10-08).
      따라 말하기 = 문장마다(문장 사이 0.45초 + 따라 말할 시간). 새 질문 앞 1.2초. 큰 버튼 [이전][재생/일시정지][다음](문단/문장) + [다음 질문].
      잠금화면·블루투스·차: 재생/일시정지 · 다음/이전 = 다음/이전 문장(Media Session) — 짧은 소리만으로는 폰이 조작을 붙여 주지 않아서
      재생하는 동안 조용한 소리(44.1kHz·16비트, 6초 반복)를 틀어 둠(한 장 영어와 같은 방식).
@@ -2389,7 +2447,7 @@ const DV = (() => {
   if (!["flow", "one"].includes(opts.mode)) opts.mode = "flow";
   if (!DV_REPS.includes(opts.rep)) opts.rep = 1;
   return { opts, pos: s && s.pos && typeof s.pos.key === "string" ? s.pos : null,
-    open: false, pl: null, idx: 0, done: false, interrupted: false, rd: null, els: [], ka: null, kaSelf: false, kaWant: false, kaT: 0, pre: null, echo: false, say: "" };
+    open: false, pl: null, idx: 0, done: false, interrupted: false, rd: null, els: [], ka: null, kaSelf: false, kaWant: false, kaT: 0, pre: null, echo: false, say: "", tapK: -1 };
 })();
 function saveDrive() { try { localStorage.setItem(DRIVE_KEY, JSON.stringify({ opts: DV.opts, pos: DV.pos })); } catch (e) {} }
 const DV_GAP = 450, DV_GAP_Q = 1200, DV_GAP_P = 700;   // 문장·질문 → 다음 · 새 질문 앞 · 문단 사이(끊지 않고 듣기)
@@ -2492,7 +2550,7 @@ function renderListen() {
     RATES.map(r => '<button data-rate="' + r + '" aria-pressed="' + (settings.rate === r) + '">' + rateLabel(r) + "</button>").join("") + "</div>";
   h += '<div class="sec-t">듣기 방식</div><div class="seg" role="group" aria-label="듣기 방식">' +
     [["flow", "끊지 않고 듣기"], ["one", "따라 말하기"]].map(([v, l]) => '<button data-lt-mode="' + v + '" aria-pressed="' + (o.mode === v) + '">' + l + "</button>").join("") + "</div>" +
-    '<p class="note lt-mode-n">' + (o.mode === "one" ? "문장이 끝날 때마다 그 문장 길이만큼 쉬어요. 쉬는 동안 따라 말해 보세요." : "질문을 읽고, 내 글을 문단마다 끊지 않고 이어서 읽어요.") + "</p>";
+    '<p class="note lt-mode-n">' + (o.mode === "one" ? "문장이 끝날 때마다 그 문장 길이만큼 쉬어요. 쉬는 동안 따라 말해 보세요." : "질문을 읽고, 내 글을 문단마다 끊지 않고 이어서 읽어요. 단어를 누르면 그 자리부터 들어요.") + "</p>";
   if (o.mode === "one") h += '<div class="sec-t">반복 횟수</div><div class="seg" role="group" aria-label="반복 횟수">' +
     DV_REPS.map(n => '<button data-lt-rep="' + n + '" aria-pressed="' + (o.rep === n) + '">' + n + "번</button>").join("") + "</div>" +
     (o.rep > 1 ? '<p class="note lt-mode-n">문장마다 듣고 따라 말하기를 ' + o.rep + "번 반복한 뒤 다음 문장으로 가요. 질문은 한 번만 읽어요.</p>" : "");
@@ -2614,13 +2672,13 @@ function dvShowBlock(k) {
       if (x.ko) sec.insertAdjacentHTML("beforeend", '<div class="dv-ko">' + esc(x.ko) + "</div>");
       DVU.cur.appendChild(sec);
     });
-    stage.scrollTop = 0;
+    autoScroll(stage, 0, true);
   }
   let on = null;
   DVU.cur.querySelectorAll(".dv-sec").forEach(s => { const m = +s.dataset.k === k; s.classList.toggle("on", m); if (m) on = s; });
-  if (on && k !== pl.blocks[it.b].start) {                                   // 새 문단이 위쪽에 오게
+  if (on && k !== pl.blocks[it.b].start && DV.tapK !== k) {                 // 새 문단이 위쪽에 오게(단어를 눌러 옮긴 문단은 이미 보이니까 그대로)
     const top = stage.scrollTop + on.getBoundingClientRect().top - stage.getBoundingClientRect().top - 8;
-    stage.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    autoScroll(stage, top);
   }
 }
 function dvShow(k) {
@@ -2640,7 +2698,7 @@ function dvShow(k) {
   dvEl(k);
   DVU.cur.appendChild(DV.els[k]);
   if (it.ko) DVU.cur.insertAdjacentHTML("beforeend", '<div class="dv-ko">' + esc(it.ko) + "</div>");
-  $("dvStage").scrollTop = 0;
+  autoScroll($("dvStage"), 0, true);
 }
 function dvSavePos() {
   if (!DV.pl || DV.done || !DV.pl.items[DV.idx]) return;
@@ -2659,6 +2717,7 @@ function dvStart(resume) {
   DV.rd = createReader({
     items: () => DV.pl.items.map((x, j) => ({ get el() { return dvEl(j); } })),
     rate: () => settings.rate,
+    tapSingle: false,                                                         // 단어를 누르면 거기서부터 끝까지 이어서
     gap: j => dvGap(j),
     tail: j => dvGap(j),
     repeat: j => dvReps(j),
@@ -2703,6 +2762,26 @@ function dvStep(d) {
   if (k >= DV.pl.items.length) { toast(DV.opts.mode === "one" ? "마지막 문장이에요" : "마지막 문단이에요"); return; }
   dvGo(k);
 }
+/* 끊지 않고 듣기: 단어를 누르면 그 단어부터(타임스탬프 — Player.run의 startAt). 읽는 문단이면 그 자리로 바로 옮기고,
+   다른 문단·질문이면 그 음성으로 바꿔서, 일시정지·끝·끊김이면 거기서 다시 재생. 그 뒤로는 평소처럼 끝까지 이어서 */
+function dvSeek(k, w) {
+  if (!DV.pl || !DV.pl.items[k]) return;
+  DV.done = false; DV.interrupted = false;
+  DV.tapK = k;
+  DV.rd.seek(k, w);                                                           // 다른 문단이면 onItem → dvShow가 여기서 바로 불림
+  DV.tapK = -1;
+}
+const dvTapOk = tapGuard($("dvStage"));
+DVU.cur.addEventListener("click", e => {
+  if (!DV.open || !DV.rd || DV.opts.mode === "one") return;                   // 따라 말하기는 그대로(단어 누르기 없음)
+  const sec = e.target.closest(".dv-sec"), area = sec && e.target.closest(".dv-en");
+  if (!area || !dvTapOk()) return;
+  const w = wordAtTap(e, area);
+  if (!w) return;
+  flashWord(w);
+  dvSeek(+sec.dataset.k, +w.dataset.w);
+  buzz();
+});
 function dvNextQ() {
   const b = DV.pl.items[DV.idx].b + 1;
   if (b >= DV.pl.blocks.length) { toast("마지막 질문이에요"); return; }
