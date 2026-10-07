@@ -1,0 +1,2736 @@
+<!-- 영어일기 — 화면과 동작. 주제·질문은 data/topics.js (규칙은 CLAUDE.md) -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#121417" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F5F3EE" media="(prefers-color-scheme: light)">
+<meta name="mobile-web-app-capable" content="yes">
+<title>영어일기</title>
+<!-- 웹앱 설치(5단계): 같은 폴더의 manifest·아이콘·sw.js — 없어도 앱은 그대로 동작 -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    color-scheme: dark;
+    --bg:#121417;
+    --bg-2:#1A1D21;
+    --bg-3:#23272D;
+    --text:#ECE9E4;
+    --text-2:#C9CBCF;
+    --muted:#A1A7B0;
+    --faint:#8C939C;
+    --line:rgba(255,255,255,.08);
+    --card:#1F2328;
+    --accent:#86C2AC;
+    --accent-soft:rgba(134,194,172,.11);
+    --accent-line:rgba(134,194,172,.42);
+    --on-accent:#10201B;
+    --warn:#E8A57A;
+    --warn-soft:rgba(232,165,122,.12);
+    --mark:rgba(134,194,172,.26);
+    --scrim:rgba(0,0,0,.58);
+    --toast:#2B3036;
+    --pad:20px;
+    --tabbar-h:58px;
+    --tz:1;               /* 글자 크기(설정) — applyTextZoom이 바꿈 */
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      color-scheme: light;
+      --bg:#F5F3EE;
+      --bg-2:#ECE9E2;
+      --bg-3:#F0EDE6;
+      --text:#1F2226;
+      --text-2:#3B3F45;
+      --muted:#5E646C;
+      --faint:#5F646B;
+      --line:rgba(0,0,0,.08);
+      --card:#FFFFFF;
+      --accent:#256A55;
+      --accent-soft:rgba(37,106,85,.07);
+      --accent-line:rgba(37,106,85,.36);
+      --on-accent:#FFFFFF;
+      --warn:#9A4A15;
+      --warn-soft:rgba(154,74,21,.08);
+      --mark:rgba(37,106,85,.16);
+      --scrim:rgba(20,22,25,.34);
+    }
+  }
+  @media (max-width:370px){ :root{ --pad:18px; } }
+
+  *,*::before,*::after{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; background:var(--bg); color:var(--text); overflow:hidden; overscroll-behavior:none; -webkit-text-size-adjust:100%; text-size-adjust:100%; }
+  body{
+    font-family:system-ui,-apple-system,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;
+    font-size:17px; line-height:1.55; -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+    word-break:keep-all; overflow-wrap:break-word;
+  }
+  button{ font:inherit; color:inherit; background:none; border:0; padding:0; margin:0; cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; -webkit-user-select:none; user-select:none; }
+  button:focus{ outline:none; }
+  button:focus-visible{ outline:2px solid var(--accent); outline-offset:3px; }
+  button:disabled{ cursor:default; opacity:.45; }
+  svg{ display:block; }
+  textarea, input{ font:inherit; color:var(--text); }
+  textarea::placeholder, input::placeholder{ color:var(--faint); }
+
+  /* ---------- 앱 틀: 화면 + 하단 탭 3개 ---------- */
+  .app{ height:100vh; height:100dvh; display:flex; flex-direction:column; }
+  .views{ position:relative; flex:1; min-height:0; }
+  .view{ position:absolute; inset:0; overflow-y:auto; overflow-x:hidden; overscroll-behavior-y:contain; }
+  .view.off{ visibility:hidden; pointer-events:none; }
+  .page{ padding:calc(env(safe-area-inset-top, 0px) + 14px) max(var(--pad), env(safe-area-inset-right)) 32px max(var(--pad), env(safe-area-inset-left)); }
+  .tabbar{
+    position:relative; z-index:15; flex:none; display:flex;
+    height:calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+    padding:0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+    background:var(--bg); border-top:1px solid var(--line);
+  }
+  .tab{ flex:1; min-width:0; min-height:44px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; font-size:12px; font-weight:600; color:var(--faint); }
+  .tab-ico{ position:relative; z-index:0; display:block; width:23px; height:23px; }
+  .tab-ico svg{ width:23px; height:23px; }
+  .tab-ico::before{ content:""; position:absolute; z-index:-1; top:-4px; bottom:-4px; left:-17px; right:-17px; border-radius:999px; background:var(--accent); opacity:0; transform:scaleX(.6); transition:opacity .2s ease, transform .2s ease; }
+  .tab[aria-selected="true"]{ color:var(--text); font-weight:750; }
+  .tab[aria-selected="true"] .tab-ico{ color:var(--accent); }
+  .tab[aria-selected="true"] .tab-ico::before{ opacity:.2; transform:none; }
+
+  .head{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:16px; }
+  .head h1{ margin:0; font-size:24px; font-weight:800; letter-spacing:-.01em; }
+  .head .sub{ font-size:13.5px; color:var(--faint); font-weight:600; font-variant-numeric:tabular-nums; }
+  .sec-t{ margin:22px 2px 10px; font-size:13px; font-weight:700; letter-spacing:.04em; color:var(--faint); }
+  .note{ margin:8px 2px 0; font-size:13.5px; line-height:1.6; color:var(--faint); }
+
+  /* 큰 버튼(화면마다 하나) · 보조 버튼 */
+  .go{ display:flex; align-items:center; justify-content:center; gap:8px; width:100%; min-height:56px; padding:12px 18px; border-radius:16px; background:var(--accent); color:var(--on-accent); font-size:17.5px; font-weight:750; text-align:center; }
+  .go svg{ width:20px; height:20px; flex:none; }
+  .go:active{ transform:scale(.985); }
+  .sub-btn{ display:flex; align-items:center; justify-content:center; gap:6px; min-height:44px; padding:8px 14px; border-radius:12px; font-size:15px; font-weight:600; color:var(--accent); }
+  .sub-btn svg{ width:17px; height:17px; }
+  .sub-row{ display:flex; flex-wrap:wrap; justify-content:center; gap:4px 10px; margin-top:8px; }
+  .seg{ display:flex; gap:3px; padding:3px; border-radius:13px; background:var(--bg-2); border:1px solid var(--line); }
+  .seg button{ flex:1; min-height:44px; border-radius:10px; font-size:15.5px; color:var(--muted); }
+  .seg button[aria-pressed="true"]{ background:var(--card); color:var(--text); font-weight:650; box-shadow:0 1px 3px rgba(0,0,0,.18); }
+
+  /* ---------- 이번 주: 주제 고르기 ---------- */
+  .tp-list{ display:flex; flex-direction:column; gap:10px; }
+  .tp{ display:flex; gap:14px; align-items:flex-start; width:100%; padding:16px; border-radius:16px; background:var(--card); border:1.5px solid var(--line); text-align:left; }
+  .tp[aria-pressed="true"]{ border-color:var(--accent); background:var(--accent-soft); }
+  .tp-emo{ flex:none; font-size:28px; line-height:1.1; }
+  .tp-body{ flex:1; min-width:0; }
+  .tp-ko{ display:block; font-size:18px; font-weight:750; }
+  .tp-en{ display:block; font-size:14px; color:var(--muted); }
+  .tp-ex{ display:block; margin-top:8px; font-size:13.5px; line-height:1.5; color:var(--faint); }
+  .tp-chk{ flex:none; width:24px; height:24px; border-radius:50%; border:2px solid var(--faint); display:flex; align-items:center; justify-content:center; }
+  .tp[aria-pressed="true"] .tp-chk{ background:var(--accent); border-color:var(--accent); color:var(--on-accent); }
+  .tp-chk svg{ width:15px; height:15px; opacity:0; }
+  .tp[aria-pressed="true"] .tp-chk svg{ opacity:1; }
+  .start-foot{ margin-top:22px; }
+
+  /* ---------- 이번 주: 타임라인 ---------- */
+  .wk-topic{ display:flex; align-items:center; gap:12px; padding:14px 16px; border-radius:16px; background:var(--bg-2); }
+  .wk-topic .tp-emo{ font-size:26px; }
+  .wk-prog{ margin-left:auto; flex:none; font-size:13.5px; font-weight:650; color:var(--muted); font-variant-numeric:tabular-nums; text-align:right; }
+  .now-card{ margin-top:14px; padding:16px; border-radius:18px; background:var(--accent-soft); border:1px solid var(--accent-line); }
+  .now-k{ font-size:13px; font-weight:700; letter-spacing:.04em; color:var(--accent); }
+  .now-t{ margin:4px 0 14px; font-size:18px; font-weight:700; line-height:1.45; }
+  .now-s{ display:block; margin-top:2px; font-size:14px; font-weight:500; color:var(--muted); }
+  .tl{ list-style:none; margin:0; padding:0; position:relative; }
+  .tl li{ position:relative; display:flex; gap:12px; align-items:flex-start; padding:4px 0; }
+  .tl li:not(:last-child)::before{ content:""; position:absolute; left:17px; top:42px; bottom:-6px; width:2px; background:var(--line); }
+  .tl-dot{ flex:none; position:relative; z-index:1; width:36px; height:36px; margin-top:6px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14.5px; font-weight:750; background:var(--bg-2); border:1.5px solid var(--line); color:var(--muted); font-variant-numeric:tabular-nums; }
+  .tl-dot svg{ width:18px; height:18px; }
+  .tl li.done .tl-dot{ background:var(--accent); border-color:var(--accent); color:var(--on-accent); }
+  .tl li.cur .tl-dot{ border-color:var(--accent); color:var(--accent); border-width:2px; }
+  .tl-main{ flex:1; min-width:0; display:block; width:100%; padding:10px 12px; border-radius:14px; text-align:left; }
+  .tl-main:active{ background:var(--bg-2); }
+  .tl-k{ display:block; font-size:12.5px; font-weight:700; color:var(--faint); letter-spacing:.02em; }
+  .tl li.done .tl-k{ color:var(--accent); }
+  .tl-t{ display:block; margin-top:2px; font-size:16px; font-weight:650; line-height:1.45; }
+  .tl-e{ display:block; margin-top:2px; font-size:13.5px; color:var(--muted); line-height:1.45; }
+  .tl-side{ flex:none; display:flex; flex-direction:column; align-items:center; padding-top:4px; }
+  .tl-btn{ width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; color:var(--muted); }
+  .tl-btn svg{ width:20px; height:20px; }
+  .tl-btn:active{ background:var(--bg-2); }
+  .tl li.gpt .tl-dot{ font-size:11px; letter-spacing:-.02em; }
+  .tl li.off .tl-main{ cursor:default; }
+  .tl li.off .tl-t{ color:var(--muted); }
+  .lv{ display:inline-block; margin-left:6px; padding:0 7px; border-radius:6px; font-size:11.5px; font-weight:700; background:var(--bg-3); color:var(--muted); vertical-align:1px; }
+
+  /* ---------- 질문 진행 · GPT 대화 (전체 화면) ---------- */
+  .full{ position:fixed; inset:0; z-index:30; display:flex; flex-direction:column; background:var(--bg); }
+  .full[hidden]{ display:none; }
+  .f-top{ flex:none; display:flex; align-items:center; gap:6px; padding:calc(env(safe-area-inset-top, 0px) + 6px) max(10px, env(safe-area-inset-right)) 4px max(6px, env(safe-area-inset-left)); }
+  .f-x{ flex:none; width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; color:var(--muted); }
+  .f-x svg{ width:22px; height:22px; }
+  .f-title{ flex:1; min-width:0; font-size:15px; font-weight:700; color:var(--text-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .steps{ flex:none; display:flex; gap:4px; padding:0 max(var(--pad), env(safe-area-inset-right)) 4px max(var(--pad), env(safe-area-inset-left));   /* 칩을 44px로 키운 만큼 바깥 여백을 줄임(5-2) */ }
+  .st{ flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:5px; min-height:44px; justify-content:center; padding:4px 0; font-size:12px; font-weight:650; color:var(--faint); }
+  .st::before{ content:""; display:block; width:100%; height:4px; border-radius:2px; background:var(--bg-3); }
+  .st.reached::before{ background:var(--accent-line); }
+  .st.reached{ color:var(--muted); }
+  .st.cur{ color:var(--text); font-weight:800; }
+  .st.cur::before{ background:var(--accent); }
+  .st:disabled{ opacity:1; }
+  .f-body{ flex:1; min-height:0; overflow-y:auto; overscroll-behavior-y:contain; padding:10px max(var(--pad), env(safe-area-inset-right)) 24px max(var(--pad), env(safe-area-inset-left)); }
+  .f-foot{ flex:none; padding:10px max(var(--pad), env(safe-area-inset-right)) calc(env(safe-area-inset-bottom, 0px) + 12px) max(var(--pad), env(safe-area-inset-left)); border-top:1px solid var(--line); background:var(--bg); }
+  .f-foot .sub-row{ margin-top:4px; }
+
+  .q-en{ margin:4px 0 0; font-size:21px; font-weight:750; line-height:1.4; }
+  .q-ko{ margin:6px 0 0; font-size:15px; color:var(--muted); }
+  .wr{ display:block; width:100%; min-height:200px; margin-top:18px; padding:14px; border-radius:14px; border:1px solid var(--line); background:var(--card); font-size:17px; line-height:1.6; resize:vertical; }
+  .wr:focus{ outline:2px solid var(--accent-line); outline-offset:0; }
+  .wc{ margin:6px 2px 0; font-size:13px; color:var(--faint); text-align:right; font-variant-numeric:tabular-nums; }
+  .how{ margin:4px 0 0; padding:0; list-style:none; counter-reset:how; }
+  .how li{ position:relative; padding:10px 0 10px 40px; font-size:15.5px; line-height:1.55; color:var(--text-2); counter-increment:how; }
+  .how li::before{ content:counter(how); position:absolute; left:0; top:9px; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:750; background:var(--bg-3); color:var(--muted); }
+  .how li.on::before{ background:var(--accent); color:var(--on-accent); }
+  .how li.ok::before{ content:"✓"; background:var(--accent-soft); color:var(--accent); }
+  .how b{ color:var(--text); }
+  .box{ margin-top:14px; padding:14px; border-radius:14px; background:var(--bg-2); }
+  .box-t{ margin:0 0 6px; font-size:13px; font-weight:700; letter-spacing:.03em; color:var(--faint); }
+  .warn{ margin-top:14px; padding:12px 14px; border-radius:14px; background:var(--warn-soft); color:var(--warn); font-size:14.5px; line-height:1.55; }
+  .warn b{ font-weight:750; }
+  .man{ display:block; width:100%; min-height:90px; margin-top:8px; padding:12px; border-radius:12px; border:1px dashed var(--faint); background:transparent; font-size:14.5px; line-height:1.5; resize:vertical; }
+  details.more{ margin-top:16px; }
+  details.more summary{ min-height:44px; display:flex; align-items:center; gap:6px; font-size:14.5px; font-weight:600; color:var(--muted); cursor:pointer; list-style:none; }
+  details.more summary::-webkit-details-marker{ display:none; }
+  details.more summary::before{ content:"›"; display:inline-block; width:14px; font-size:18px; transition:transform .15s ease; }
+  details.more[open] summary::before{ transform:rotate(90deg); }
+  .pre{ margin:4px 0 0; padding:12px; border-radius:12px; background:var(--bg-2); font-size:13px; line-height:1.55; color:var(--text-2); white-space:pre-wrap; word-break:break-word; max-height:320px; overflow:auto; }
+
+  /* 문장 짝 */
+  .pairs{ list-style:none; margin:10px 0 0; padding:0; display:flex; flex-direction:column; gap:10px; }
+  .pair{ display:flex; gap:10px; padding:12px; border-radius:14px; background:var(--card); border:1px solid var(--line); }
+  .pair.bad{ border-color:var(--warn); }
+  .pn{ flex:none; width:24px; font-size:14px; font-weight:750; color:var(--faint); padding-top:2px; font-variant-numeric:tabular-nums; }
+  .pb{ flex:1; min-width:0; }
+  .pe{ font-size:16.5px; font-weight:600; line-height:1.5; }
+  .pe.none{ color:var(--warn); font-weight:600; font-size:14px; }
+  .pk{ display:block; width:100%; margin-top:6px; min-height:44px; padding:10px 10px; border-radius:9px; border:1px solid transparent; background:var(--bg-2); font-size:15px; line-height:1.5; color:var(--text-2); resize:none; overflow:hidden; }
+  .pk:focus{ outline:none; border-color:var(--accent-line); background:var(--bg-3); }
+  .pk.empty{ border-color:var(--warn); }
+  .pko{ margin-top:4px; font-size:14.5px; color:var(--muted); line-height:1.5; }
+  .flow{ font-size:16px; line-height:1.6; font-weight:600; }
+  .kw{ display:flex; flex-wrap:wrap; gap:6px; }
+  .kw span{ padding:3px 10px; border-radius:999px; background:var(--bg-3); font-size:14px; }
+  .conds{ margin:0; padding-left:20px; font-size:15px; line-height:1.6; color:var(--text-2); }
+  .todo{ margin-top:14px; padding:14px; border-radius:14px; border:1px dashed var(--faint); font-size:14.5px; color:var(--muted); line-height:1.55; }
+  .big-flow{ margin-top:12px; padding:18px 16px; border-radius:16px; background:var(--accent-soft); border:1px solid var(--accent-line); font-size:19px; font-weight:650; line-height:1.6; }
+  .donebox{ margin-top:6px; text-align:center; }
+  .donebox .em{ font-size:44px; }
+  .donebox h2{ margin:4px 0 4px; font-size:22px; }
+  .donebox p{ margin:0; color:var(--muted); font-size:15px; }
+
+  /* ---------- 기록 ---------- */
+  .lg{ margin-top:10px; border-radius:16px; background:var(--card); border:1px solid var(--line); overflow:hidden; }
+  .lg-h{ display:flex; align-items:center; gap:12px; width:100%; min-height:56px; padding:12px 14px; text-align:left; }
+  .lg-h .tp-emo{ font-size:24px; }
+  .lg-t{ flex:1; min-width:0; }
+  .lg-t b{ display:block; font-size:16px; }
+  .lg-t span{ display:block; font-size:13px; color:var(--faint); font-variant-numeric:tabular-nums; }
+  .lg-b{ padding:0 14px 14px; }
+  .lg-q{ margin-top:12px; }
+  .lg-q h3{ margin:0; font-size:15px; font-weight:700; line-height:1.45; }
+  .lg-q .st-l{ font-size:12.5px; color:var(--faint); font-weight:600; }
+  .lg-q p{ margin:6px 0 0; font-size:15px; line-height:1.55; color:var(--text-2); }
+  .empty-t{ margin:40px 0; text-align:center; color:var(--faint); font-size:15px; line-height:1.7; }
+
+  /* ---------- 노래방 강조 (한 장 영어와 같음): .sc(문장) > .w(단어). 재생하면 문장이 흐려지고 읽은 단어·지금 단어가 채워짐.
+     굵기는 안 바꾸고 밝기 + text-shadow로만(단어 폭·줄바꿈이 그대로). 단어 신호가 없으면 .lineonly(문장 전체에 은은한 배경) ---------- */
+  .sc .w, .sc .gloss{ transition:opacity .22s ease, text-shadow .22s ease; }
+  .sc .w{ cursor:pointer; }
+  .sc.reading .w, .sc.reading .gloss{ opacity:.35; }
+  .sc.reading .w.past, .sc.reading .w.now, .sc.reading.filled .w{ opacity:1; text-shadow:.3px 0 currentColor, -.3px 0 currentColor; }
+  .sc.reading.lineonly .w, .sc.reading.lineonly .gloss{ opacity:1; }
+  .sc.reading.lineonly{ background:var(--mark); box-shadow:0 0 0 2px var(--mark); border-radius:4px; -webkit-box-decoration-break:clone; box-decoration-break:clone; }
+  .gloss{ color:var(--muted); font-size:.9em; }
+
+  /* ---------- 듣기 단계 ---------- */
+  .ls-bar{ display:flex; align-items:center; gap:10px; margin-top:18px; }
+  .ls-play{ flex:1; display:flex; align-items:center; justify-content:center; gap:7px; min-height:48px; padding:0 14px; border-radius:14px; border:1.5px solid var(--accent-line); background:var(--accent-soft); color:var(--accent); font-size:16px; font-weight:700; }
+  .ls-play svg{ width:18px; height:18px; }
+  .rate-seg{ flex:none; }
+  .rate-seg button{ min-width:52px; min-height:44px; font-size:14.5px; padding:0 4px; }
+  .ls-row{ align-items:flex-start; transition:border-color .2s ease, background .2s ease; }
+  .ls-row.cur{ border-color:var(--accent); background:var(--accent-soft); }
+  .ls-row .pe{ font-size:18px; font-weight:600; }
+  .spk{ flex:none; width:44px; height:44px; margin:-8px -6px -8px 0; border-radius:12px; display:flex; align-items:center; justify-content:center; color:var(--muted); }
+  .spk svg{ width:21px; height:21px; }
+  .spk.playing{ color:var(--accent); }
+
+  /* ---------- 암송 단계 ---------- */
+  .rc-prog{ display:flex; justify-content:space-between; margin-top:18px; font-size:14px; font-weight:600; color:var(--muted); font-variant-numeric:tabular-nums; }
+  .rc-prog b{ color:var(--accent); font-size:16px; }
+  .rc-bar{ height:6px; margin-top:7px; border-radius:3px; background:var(--bg-3); overflow:hidden; }
+  .rc-bar i{ display:block; height:100%; border-radius:3px; background:var(--accent); transition:width .3s ease; }
+  .rc-card{ margin-top:16px; padding:20px 18px; border-radius:18px; background:var(--card); border:1px solid var(--line); }
+  .rc-n{ display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:var(--faint); }
+  .rc-again{ padding:1px 8px; border-radius:6px; font-size:12px; background:var(--warn-soft); color:var(--warn); }
+  .rc-ko{ margin-top:10px; font-size:22px; font-weight:700; line-height:1.5; }
+  .rc-en{ display:flex; gap:8px; align-items:flex-start; margin-top:16px; padding-top:14px; border-top:1px dashed var(--line); }
+  .rc-en-t{ flex:1; min-width:0; font-size:19px; font-weight:600; line-height:1.55; color:var(--accent); }
+  .rc-hint{ margin:14px 0 0; font-size:14px; line-height:1.55; color:var(--faint); }
+  .two{ display:flex; gap:10px; }
+  .two .outline-btn{ flex:1; width:auto; min-height:56px; margin-top:0; }
+  .two .go{ flex:1.6; width:auto; }
+
+  /* ---------- 말하기 단계: 시간 막대 ---------- */
+  .tm{ margin-top:16px; padding:16px; border-radius:16px; background:var(--bg-2); }
+  .tm-row{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+  .tm-t{ font-size:38px; font-weight:800; letter-spacing:-.01em; font-variant-numeric:tabular-nums; color:var(--text); line-height:1.1; }
+  .tm.on .tm-t{ color:var(--accent); }
+  .tm-goal{ font-size:14px; font-weight:650; color:var(--muted); }
+  .tm-bar{ height:12px; margin-top:12px; border-radius:6px; background:var(--bg-3); overflow:hidden; }
+  .tm-bar i{ display:block; height:100%; border-radius:6px; background:var(--accent); transition:width .25s linear; }
+  .tm-bar.over i{ background:repeating-linear-gradient(45deg, var(--accent) 0 10px, var(--accent-line) 10px 20px); }
+  .tm-msg{ margin:10px 0 0; font-size:14.5px; line-height:1.5; color:var(--text-2); }
+
+  /* ---------- 워밍업 · 주말 복습 ---------- */
+  .wu-k, .rv-n{ display:inline-block; margin-top:4px; padding:3px 10px; border-radius:8px; font-size:13px; font-weight:750; background:var(--accent-soft); color:var(--accent); }
+  .wu-t{ margin:10px 0 0; font-size:19px; font-weight:750; line-height:1.45; }
+  .kw-big{ gap:8px; }
+  .kw-big span{ padding:6px 13px; font-size:17px; font-weight:650; background:var(--card); border:1px solid var(--line); }
+  .rv-flow{ margin:10px 2px 0; font-size:14px; line-height:1.55; color:var(--muted); }
+
+  /* ---------- 듣기 탭: 시작 화면 ---------- */
+  .lt-weeks{ display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+  .lt-wk{ display:flex; align-items:center; gap:10px; width:100%; min-height:52px; padding:10px 14px; border-radius:14px; border:1.5px solid var(--line); background:var(--card); text-align:left; }
+  .lt-wk[aria-pressed="true"]{ border-color:var(--accent); background:var(--accent-soft); }
+  .lt-wk .tp-emo{ font-size:22px; }
+  .lt-wk b{ display:block; font-size:15.5px; }
+  .lt-wk span span{ display:block; font-size:13px; color:var(--faint); font-variant-numeric:tabular-nums; }
+  .lt-sum{ margin-top:22px; padding:14px 16px; border-radius:14px; background:var(--bg-2); font-size:15.5px; line-height:1.6; }
+  .lt-sum b{ font-variant-numeric:tabular-nums; }
+  .lt-pre{ margin-top:14px; }
+  .lt-pre .pbar{ height:8px; margin-top:8px; border-radius:4px; background:var(--bg-3); overflow:hidden; }
+  .lt-pre .pbar i{ display:block; height:100%; background:var(--accent); transition:width .2s linear; }
+  .lt-foot{ margin-top:22px; }
+  .lt-foot .two .outline-btn{ min-height:56px; }
+  .lt-go{ flex-direction:column; gap:2px; }
+  .lt-go-t{ display:flex; align-items:center; gap:8px; }
+  .lt-resume{ display:block; font-size:12.5px; font-weight:600; opacity:.9; }
+
+  /* ---------- 듣기 탭: 재생 화면 ---------- */
+  #drive{ z-index:30; }
+  .dv-pos{ flex:1; min-width:0; }
+  .dv-pos b{ display:block; font-size:15px; font-weight:700; color:var(--text-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .dv-pos span{ display:block; font-size:13px; color:var(--faint); font-variant-numeric:tabular-nums; }
+  .dv-stage{ flex:1; min-height:0; overflow-y:auto; overscroll-behavior-y:contain; display:flex; flex-direction:column; justify-content:center; gap:22px; padding:12px max(var(--pad), env(safe-area-inset-right)) 12px max(var(--pad), env(safe-area-inset-left)); }
+  .dv-line{ font-size:calc(16px * var(--tz)); line-height:1.5; color:var(--faint); }
+  .dv-line:empty{ display:none; }
+  .dv-prev, .dv-next{ max-height:4.6em; overflow:hidden; }
+  .dv-cur{ color:var(--text); }
+  .dv-k{ display:inline-block; margin-bottom:8px; padding:2px 9px; border-radius:7px; font-size:13px; font-weight:750; background:var(--accent-soft); color:var(--accent); }
+  .dv-k.q{ background:var(--bg-3); color:var(--muted); }
+  .dv-en{ font-size:calc(25px * var(--tz)); font-weight:700; line-height:1.45; }
+  .dv-cur.q .dv-en{ font-size:calc(21px * var(--tz)); color:var(--text-2); }
+  .dv-ko{ margin-top:8px; font-size:calc(16px * var(--tz)); line-height:1.5; color:var(--muted); }
+  .dv-note{ flex:none; min-height:24px; margin:0; padding:0 var(--pad); text-align:center; font-size:14px; color:var(--muted); }
+  .dv-ctl{ flex:none; padding:10px max(var(--pad), env(safe-area-inset-right)) calc(env(safe-area-inset-bottom, 0px) + 14px) max(var(--pad), env(safe-area-inset-left)); }
+  .dv-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
+  .dv-b{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; min-height:72px; border-radius:18px; background:var(--bg-2); font-size:13px; font-weight:650; color:var(--text-2); }
+  .dv-b svg{ width:28px; height:28px; }
+  .dv-b.dv-play{ flex:1.3; min-height:88px; background:var(--accent); color:var(--on-accent); font-size:14.5px; }
+  .dv-b.dv-play svg{ width:34px; height:34px; }
+  .dv-b:active{ transform:scale(.97); }
+
+  /* ---------- 글자 크기(설정 — 문장을 보며 말하는 곳: 듣기·암송·말하기·워밍업·주말 복습·듣기 탭) ---------- */
+  .ls-row .pe{ font-size:calc(18px * var(--tz)); }
+  .ls-row .pko{ font-size:calc(14.5px * var(--tz)); }
+  .rc-ko{ font-size:calc(22px * var(--tz)); }
+  .rc-en-t{ font-size:calc(19px * var(--tz)); }
+  .big-flow{ font-size:calc(19px * var(--tz)); }
+  .kw-big span{ font-size:calc(17px * var(--tz)); }
+  .tz-prev{ margin-top:12px; padding:14px; border-radius:14px; background:var(--bg-2); }
+  .tz-prev .en{ font-size:calc(19px * var(--tz)); font-weight:650; line-height:1.45; }
+  .tz-prev .ko{ margin-top:4px; font-size:calc(15px * var(--tz)); color:var(--muted); line-height:1.5; }
+
+  /* ---------- 설정 (전체 화면) ---------- */
+  .gear{ flex:none; width:44px; height:44px; margin:-10px -10px -10px 0; border-radius:12px; display:flex; align-items:center; justify-content:center; color:var(--muted); }
+  .gear svg{ width:22px; height:22px; }
+  .head .gear{ align-self:center; }
+  .head-r{ display:flex; align-items:center; gap:8px; }
+  #settings{ z-index:35; }
+  .st-sec h2{ margin:8px 2px 4px; font-size:19px; font-weight:800; }
+  .st-l{ display:block; margin:20px 2px 8px; font-size:13px; font-weight:700; letter-spacing:.03em; color:var(--faint); }
+  .key-row{ display:flex; gap:8px; }
+  .inp, .sel{ display:block; width:100%; min-height:48px; padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:var(--card); font-size:16px; }
+  .key-row .inp{ flex:1; min-width:0; font-family:ui-monospace,Consolas,monospace; font-size:15px; }
+  .inp.masked{ -webkit-text-security:disc; text-security:disc; }
+  .key-row .inp::placeholder{ font-family:system-ui,-apple-system,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif; -webkit-text-security:none; }
+  .inp:focus, .sel:focus{ outline:2px solid var(--accent-line); outline-offset:0; }
+  .key-state{ margin:8px 2px 0; font-size:13.5px; color:var(--faint); }
+  .key-state b{ color:var(--accent); }
+  .outline-btn{ display:flex; align-items:center; justify-content:center; gap:7px; width:100%; min-height:48px; margin-top:10px; border-radius:14px; border:1.5px solid var(--line); background:var(--card); font-size:15.5px; font-weight:650; color:var(--text-2); }
+  .outline-btn svg{ width:18px; height:18px; }
+  .outline-btn.playing{ border-color:var(--accent); color:var(--accent); }
+  .outline-btn.danger{ color:var(--warn); }
+
+  /* ---------- 토스트 ---------- */
+  .toast{ position:fixed; left:50%; z-index:40; bottom:calc(env(safe-area-inset-bottom, 0px) + 110px); max-width:calc(100% - 40px); padding:11px 18px; border-radius:16px; background:var(--toast); color:#F1EFEB; font-size:14.5px; line-height:1.45; text-align:center; box-shadow:0 6px 24px rgba(0,0,0,.3); opacity:0; transform:translate(-50%, 10px); transition:opacity .25s ease, transform .25s ease; pointer-events:none; }
+  .toast.on{ opacity:1; transform:translate(-50%, 0); }
+  /* 새 버전 알림 막대(위쪽, 모든 화면 위) */
+  .upd{ position:fixed; z-index:45; left:12px; right:12px; top:calc(env(safe-area-inset-top, 0px) + 8px); display:flex; align-items:center; gap:6px; padding:6px 6px 6px 16px; border-radius:16px; background:var(--toast); color:#F1EFEB; font-size:15px; font-weight:600; box-shadow:0 6px 24px rgba(0,0,0,.3); }
+  .upd[hidden]{ display:none; }
+  .upd span{ flex:1; min-width:0; }
+  .upd button{ flex:none; min-height:44px; padding:0 14px; border-radius:12px; background:#86C2AC; color:#10201B; font-size:15px; font-weight:750; }
+  .upd .upd-x{ background:transparent; color:#C9CBCF; font-weight:600; padding:0 10px; }
+  @media (prefers-reduced-motion: reduce){ *,*::before,*::after{ transition-duration:.01ms !important; animation-duration:.01ms !important; } }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="views">
+    <section class="view" id="vWeek" aria-label="이번 주"><div class="page" id="weekPage"></div></section>
+    <section class="view off" id="vListen" aria-label="듣기"><div class="page" id="listenPage"></div></section>
+    <section class="view off" id="vLog" aria-label="기록"><div class="page" id="logPage"></div></section>
+  </div>
+  <nav class="tabbar" role="tablist" aria-label="화면">
+    <button class="tab" role="tab" data-tab="week" aria-selected="true"><span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></span>이번 주</button>
+    <button class="tab" role="tab" data-tab="listen" aria-selected="false"><span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3.5" y="13.5" width="4.5" height="7" rx="2"/><rect x="16" y="13.5" width="4.5" height="7" rx="2"/></svg></span>듣기</button>
+    <button class="tab" role="tab" data-tab="log" aria-selected="false"><span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5h11a3 3 0 0 1 3 3v12H8a3 3 0 0 1-3-3z"/><path d="M5 16.5a3 3 0 0 1 3-3h11M9 8.5h6"/></svg></span>기록</button>
+  </nav>
+</div>
+
+<!-- 질문 진행 / GPT 대화 (전체 화면, 탭 바를 덮음) -->
+<div class="full" id="flow" hidden role="dialog" aria-modal="true">
+  <div class="f-top">
+    <button class="f-x" id="flowX" aria-label="닫기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <div class="f-title" id="flowTitle"></div>
+  </div>
+  <div class="steps" id="flowSteps"></div>
+  <div class="f-body" id="flowBody"></div>
+  <div class="f-foot" id="flowFoot"></div>
+</div>
+
+<!-- 설정 (전체 화면, 탭 바를 덮음) -->
+<div class="full" id="settings" hidden role="dialog" aria-modal="true" aria-label="설정">
+  <div class="f-top">
+    <button class="f-x" id="stX" aria-label="닫기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <div class="f-title">설정</div>
+  </div>
+  <div class="f-body" id="stBody"></div>
+</div>
+
+<!-- 듣기 탭 재생 화면(드라이브 모드 — 탭 바를 덮음) -->
+<div class="full" id="drive" hidden role="dialog" aria-modal="true" aria-label="이어 듣기">
+  <div class="f-top">
+    <button class="f-x" id="dvX" aria-label="닫기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <div class="dv-pos"><b id="dvPos1"></b><span id="dvPos2"></span></div>
+  </div>
+  <div class="dv-stage" id="dvStage">
+    <div class="dv-line dv-prev" id="dvPrev"></div>
+    <div class="dv-line dv-cur" id="dvCur"></div>
+    <div class="dv-line dv-next" id="dvNext"></div>
+  </div>
+  <p class="dv-note" id="dvNote" aria-live="polite"></p>
+  <div class="dv-ctl">
+    <div class="dv-row">
+      <button class="dv-b" id="dvPrevB" aria-label="이전 문장"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5.5h2.2v13H7zM19 5.5v13L10 12z"/></svg><span>이전 문장</span></button>
+      <button class="dv-b dv-play" id="dvToggle" aria-label="재생"></button>
+      <button class="dv-b" id="dvNextB" aria-label="다음 문장"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M14.8 5.5H17v13h-2.2zM5 5.5v13L14 12z"/></svg><span>다음 문장</span></button>
+    </div>
+    <button class="outline-btn" id="dvNextQ">다음 질문</button>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<!-- 앱 업데이트(5단계): 새 버전이 받아지면 뜸 -->
+<div class="upd" id="upd" hidden role="status"><span>새 버전이 나왔어요</span><button id="updGo">새로 고침</button><button class="upd-x" id="updX" aria-label="나중에">나중에</button></div>
+
+<script src="data/topics.js"></script>
+<script>
+"use strict";
+/* =====================================================================
+   영어일기 — 1단계: 이번 주(주제 고르기·타임라인) · 질문 진행(쓰기·첨삭) · GPT 대화 · 기록
+   저장 키는 모두 "ediary." (한 장 영어 "engcards."와 겹치지 않게)
+   ===================================================================== */
+
+/* ---------- 데이터 ---------- */
+const TOPICS = Array.isArray(window.TOPIC_DATA) ? window.TOPIC_DATA : [];
+const TOPIC_BY_ID = {}, Q_BY_ID = {};
+TOPICS.forEach(t => {
+  TOPIC_BY_ID[t.id] = t;
+  (t.questions || []).forEach(q => { Q_BY_ID[q.id] = Object.assign({ topic: t.id }, q); });
+});
+const LEVEL_NAME = { 1: "쉬움", 2: "중간", 3: "깊음" };
+const PICK_PLAN = { 3: [1, 1, 1], 4: [1, 2, 1], 5: [2, 2, 1] };   // 질문 개수 → 쉬움·중간·깊음
+const STEPS = ["write", "fix", "listen", "recite", "speak", "done"];
+const STEP_NAME = ["쓰기", "첨삭", "듣기", "암송", "말하기"];
+const RECOMMEND_N = 5;
+const HANGUL_RE = /[가-힣]/;
+
+/* ---------- 앱의 '지금'과 '오늘' (하루는 자정 기준, 한 주는 월요일 0시 ~ 일요일 밤 12시) ----------
+   테스트용: ?debugDate=2026-10-20 (그 날 낮 12시) 또는 ?debugDate=2026-10-20T23:59 */
+const DEBUG_T0 = (() => {
+  try {
+    const v = new URLSearchParams(location.search).get("debugDate") || "";
+    const m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/.exec(v.trim());
+    if (!m) return null;
+    const t = new Date(+m[1], +m[2] - 1, +m[3], m[4] != null ? +m[4] : 12, m[5] != null ? +m[5] : 0, m[6] != null ? +m[6] : 0);
+    return isNaN(t) ? null : { at: t.getTime(), real: Date.now() };
+  } catch (e) { return null; }
+})();
+function appNow() { return DEBUG_T0 ? new Date(DEBUG_T0.at + (Date.now() - DEBUG_T0.real)) : new Date(); }
+const pad2 = n => String(n).padStart(2, "0");
+function dateKey(d) { d = d || appNow(); return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
+function keyDate(k) { const p = k.split("-").map(Number); return new Date(p[0], p[1] - 1, p[2]); }
+function addDays(k, n) { const d = keyDate(k); d.setDate(d.getDate() + n); return dateKey(d); }
+function weekKey(d) { d = d || appNow(); const k = dateKey(d); return addDays(k, -((d.getDay() + 6) % 7)); }   // 그 주 월요일
+function md(k) { const d = keyDate(k); return (d.getMonth() + 1) + "월 " + d.getDate() + "일"; }
+function weekRange(wk) {
+  const a = keyDate(wk), b = keyDate(addDays(wk, 6));
+  return md(wk) + " ~ " + (a.getMonth() === b.getMonth() ? b.getDate() + "일" : md(addDays(wk, 6)));
+}
+
+/* ---------- 저장 (localStorage — 모두 try/catch, 비어 있어도 정상 동작) ----------
+   ediary.weeks.v1 { v: 1, count: 마지막으로 고른 질문 개수, weeks: { "월요일 YYYY-MM-DD": 주 } }
+   주 = { topic, count, qs: [질문 id(쉬움 → 깊음)], gpt: [{ id, after(이 번호 질문 뒤), copied?, done?(날짜) }],
+          items: { 질문 id: 항목 }, skip: [바꾸기로 뺀 질문 id], started }
+   항목 = { step(STEPS), text, updated, copied?, raw?(붙여넣은 원문), pairs?: [{ en, ko }], flow?, keywords?: [], conds?: [], orphans?, doneOn? } */
+const WEEKS_KEY = "ediary.weeks.v1";
+const store = (() => {
+  try {
+    const s = JSON.parse(localStorage.getItem(WEEKS_KEY) || "null");
+    if (s && typeof s === "object" && s.weeks && typeof s.weeks === "object") {
+      return { v: 1, count: PICK_PLAN[s.count] ? s.count : 4, weeks: s.weeks };
+    }
+  } catch (e) {}
+  return { v: 1, count: 4, weeks: {} };
+})();
+function save() {
+  try { localStorage.setItem(WEEKS_KEY, JSON.stringify(store)); return true; }
+  catch (e) { toast("저장하지 못했어요 (저장 공간을 확인해 주세요)"); return false; }
+}
+let saveTimer = null;
+function saveSoon() { clearTimeout(saveTimer); saveTimer = setTimeout(save, 400); }
+addEventListener("pagehide", () => { if (saveTimer) { clearTimeout(saveTimer); save(); } });
+
+function curWeek() { return store.weeks[weekKey()] || null; }
+function itemOf(w, qid) {
+  if (!w.items[qid]) w.items[qid] = { step: "write", text: "" };
+  return w.items[qid];
+}
+const stepIdx = it => Math.max(0, STEPS.indexOf(it && it.step || "write"));
+const qDone = (w, qid) => !!(w.items[qid] && w.items[qid].step === "done");
+const qStarted = (w, qid) => { const it = w.items[qid]; return !!(it && (stepIdx(it) > 0 || (it.text || "").trim())); };
+
+/* ---------- 작은 도구 ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const toastEl = $("toast");
+let toastTimer = null;
+function toast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add("on");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove("on"), 2800);
+}
+function buzz() { try { navigator.vibrate && navigator.vibrate(12); } catch (e) {} }
+function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function shuffle(arr, r) { r = r || Math.random; const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function wordCount(s) { return (String(s || "").match(/[A-Za-z][A-Za-z'’-]*/g) || []).length; }
+
+async function copyText(text) {
+  try { if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return true; } } catch (e) {}
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text; ta.setAttribute("readonly", "");
+    ta.style.cssText = "position:fixed;top:-1000px;left:0;opacity:0;";
+    document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, text.length);
+    const ok = document.execCommand("copy"); ta.remove(); return ok;
+  } catch (e) { return false; }
+}
+/* 클립보드 글 읽기 — 권한 거부·지원 안 함이면 null(그땐 '길게 눌러 붙여넣기' 칸을 씀) */
+async function readClipboard() {
+  try { if (navigator.clipboard && navigator.clipboard.readText && window.isSecureContext) return await navigator.clipboard.readText(); }
+  catch (e) {}
+  return null;
+}
+
+const IC = {
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8.5" y="8.5" width="11" height="11" rx="2.2"/><path d="M15.5 8.5V6.7A2.2 2.2 0 0 0 13.3 4.5H6.7A2.2 2.2 0 0 0 4.5 6.7v6.6a2.2 2.2 0 0 0 2.2 2.2h1.8"/></svg>',
+  paste: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4.5" width="14" height="16" rx="2.2"/><path d="M9 4.5V3.8A1.3 1.3 0 0 1 10.3 2.5h3.4A1.3 1.3 0 0 1 15 3.8v.7M9 11h6M9 15h4"/></svg>',
+  swap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3.5-3.5M20 16H7l3.5 3.5"/></svg>',
+  up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 14l6-6 6 6"/></svg>',
+  down: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10l6 6 6-6"/></svg>',
+  arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 18.5V7a2.5 2.5 0 0 1 2.5-2.5h9A2.5 2.5 0 0 1 19 7v6a2.5 2.5 0 0 1-2.5 2.5H9z"/></svg>',
+  star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l2.3 4.8 5.2.7-3.8 3.6.9 5.2L12 15.8l-4.6 2.5.9-5.2-3.8-3.6 5.2-.7z"/></svg>',
+  gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg>',
+  speaker: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 9.5h3l4.5-4v13l-4.5-4h-3z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>',
+  play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10.5-6.5z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6.5" y="5.5" width="4" height="13" rx="1"/><rect x="13.5" y="5.5" width="4" height="13" rx="1"/></svg>'
+};
+document.querySelectorAll("[data-open-settings]").forEach(b => { b.innerHTML = IC.gear; });
+const GEAR_BTN = '<button class="gear" data-open-settings aria-label="설정">' + IC.gear + "</button>";
+
+/* =====================================================================
+   설정 (2단계) — ediary.settings.v1 { apiKey, voice, model, rate }
+   API 키는 이 폰의 localStorage에만 저장. 코드·저장소·.env 어디에도 넣지 않음.
+   키가 있으면 ElevenLabs, 없거나 오류면 폰 기본 음성(en-US)으로 대신 읽음
+   ===================================================================== */
+const EL_VOICES = [                                     // ElevenLabs 기본 제공 목소리(미국 영어) — 한 장 영어와 같은 목록
+  { id: "cgSgspJ2msm6clMCkdW9", name: "Jessica · 여 · 밝고 친근" },
+  { id: "EXAVITQu4vr4xnJGJ8DF", name: "Sarah · 여 · 차분" },
+  { id: "FGY2WhTYpPnrIDTdsKH5", name: "Laura · 여 · 경쾌" },
+  { id: "iP95p4xoKVk53GoZ742B", name: "Chris · 남 · 편안" },
+  { id: "nPczCjzI2devNBz1zQrb", name: "Brian · 남 · 차분" },
+  { id: "cjVigY5qzO86Huf0OWal", name: "Eric · 남 · 부드러움" },
+  { id: "TX3LPaxmHKxFdv7VOQHJ", name: "Liam · 남 · 젊음" }
+];
+const EL_MODELS = [
+  { id: "eleven_v4", name: "Eleven v4 · 가장 자연스러움 (추천)" },
+  { id: "eleven_flash_v2_5", name: "Flash v2.5 · 빠르고 크레딧 절약" }
+];
+const RATES = [0.8, 0.9, 1];
+const SETTINGS_KEY = "ediary.settings.v1";
+const TEXT_ZOOMS = [1, 1.25, 1.5, 1.8];                                     // 글자 크기: 기본 / 크게 / 더 크게 / 아주 크게(한 장 영어와 같은 단계)
+const DEFAULTS = { apiKey: "", voice: "iP95p4xoKVk53GoZ742B", model: "eleven_v4", rate: 1, textZoom: 1 };
+const settings = (() => {
+  try {
+    const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");
+    const m = Object.assign({}, DEFAULTS, s && typeof s === "object" ? s : {});
+    if (typeof m.apiKey !== "string") m.apiKey = "";
+    if (!EL_VOICES.some(v => v.id === m.voice)) m.voice = DEFAULTS.voice;
+    if (!EL_MODELS.some(v => v.id === m.model)) m.model = DEFAULTS.model;
+    if (!RATES.includes(m.rate)) m.rate = 1;
+    if (!TEXT_ZOOMS.includes(m.textZoom)) m.textZoom = 1;
+    return m;
+  } catch (e) { return Object.assign({}, DEFAULTS); }
+})();
+function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {} }
+const rateLabel = r => (r === 1 ? "1.0" : String(r)) + "x";
+/* 글자 크기: CSS 변수 --tz → 문장을 보며 말하는 곳(듣기·암송·말하기·워밍업·주말 복습·듣기 탭)의 글자에 곱함 */
+function applyTextZoom() { try { document.documentElement.style.setProperty("--tz", String(settings.textZoom || 1)); } catch (e) {} }
+applyTextZoom();
+
+/* =====================================================================
+   인터랙티브 스크립트 ① 글 준비·그리기 (한 장 영어에서 가져옴 — 밑줄·연음 표시는 뺌)
+   getScript(text) → { id, text(화면 글), speech(읽을 글 — 괄호 속 한국어 뜻은 뺌), words: [{ pieces, ss, se }], wordAt(읽을 글 위치) }
+   scriptHtml(text) → <span class="sc" data-sc="id"> 안에 단어마다 <span class="w" data-w="번호">
+   ===================================================================== */
+const SCRIPTS = [];
+const SCRIPT_BY_TEXT = new Map();
+const GLOSS_RE = /\s*\([^()]*[가-힣ㄱ-ㅎㅏ-ㅣ][^()]*\)/g;
+function getScript(text) {
+  text = String(text || "");
+  if (SCRIPT_BY_TEXT.has(text)) return SCRIPT_BY_TEXT.get(text);
+  const n = text.length;
+  const gloss = new Uint8Array(n);
+  GLOSS_RE.lastIndex = 0;
+  let m;
+  while ((m = GLOSS_RE.exec(text))) for (let i = m.index; i < m.index + m[0].length; i++) gloss[i] = 1;
+  const d2s = new Int32Array(n);
+  let speech = "";
+  for (let i = 0; i < n; i++) {
+    if (gloss[i]) { d2s[i] = -1; continue; }
+    d2s[i] = speech.length;
+    speech += text[i];
+  }
+  const toks = [];
+  let cur = null;
+  for (let i = 0; i < n; i++) {
+    if (gloss[i] || /\s/.test(text[i])) { cur = null; continue; }
+    if (cur) cur.e = i + 1;
+    else { cur = { s: i, e: i + 1 }; toks.push(cur); }
+  }
+  const words = [];
+  let lead = [];
+  toks.forEach(t => {
+    const p = [t.s, t.e];
+    if (/[A-Za-z0-9]/.test(text.slice(t.s, t.e))) { words.push({ pieces: lead.concat([p]) }); lead = []; }
+    else if (words.length) words[words.length - 1].pieces.push(p);
+    else lead.push(p);
+  });
+  if (lead.length) words.push({ pieces: lead });
+  const wAt = new Int32Array(n).fill(-1);
+  const sp2w = new Int32Array(speech.length).fill(-1);
+  words.forEach((w, k) => {
+    w.pieces.forEach(p => { for (let i = p[0]; i < p[1]; i++) { wAt[i] = k; if (d2s[i] >= 0) sp2w[d2s[i]] = k; } });
+    w.ss = d2s[w.pieces[0][0]];
+    w.se = d2s[w.pieces[w.pieces.length - 1][1] - 1] + 1;
+  });
+  for (let i = 1; i < sp2w.length; i++) if (sp2w[i] < 0) sp2w[i] = sp2w[i - 1];
+  const sc = {
+    id: SCRIPTS.length, text, speech, words, wAt, gloss,
+    wordAt: i => (i >= 0 && i < sp2w.length ? Math.max(0, sp2w[i]) : (i >= sp2w.length ? words.length - 1 : 0))
+  };
+  SCRIPTS.push(sc);
+  SCRIPT_BY_TEXT.set(text, sc);
+  return sc;
+}
+function scriptHtml(text) {
+  const sc = getScript(text);
+  const t = sc.text, n = t.length;
+  let html = '<span class="sc" data-sc="' + sc.id + '">';
+  let curW = -1, curG = 0;
+  const closeIn = () => { if (curW >= 0 || curG) html += "</span>"; curW = -1; curG = 0; };
+  for (let i = 0; i < n; i++) {
+    const w = sc.wAt[i], g = sc.gloss[i];
+    if (w !== curW || g !== curG) {
+      closeIn();
+      if (g) { html += '<span class="gloss">'; curG = 1; }
+      else if (w >= 0) { html += '<span class="w" data-w="' + w + '">'; curW = w; }
+    }
+    html += esc(t[i]);
+  }
+  closeIn();
+  return html + "</span>";
+}
+
+/* =====================================================================
+   음성 캐시 (한 번 만든 ElevenLabs 음성은 폰에 저장해서 재사용 — 크레딧은 처음 한 번만)
+   IndexedDB "ediary-tts"(한 장 영어 "engcards-tts"와 따로), 키 = 모델|목소리|읽을 글, 값 = { audio: mp3 Blob, align: 글자별 시간 }
+   ===================================================================== */
+const AudioCache = (() => {
+  const mem = new Map();
+  let dbp = null;
+  function db() {
+    if (!dbp) {
+      dbp = new Promise(res => {
+        const giveUp = setTimeout(() => res(null), 1500);   // 저장소가 답이 없으면(일부 비밀 모드·file:// 등) 저장 없이 재생
+        try {
+          const r = indexedDB.open("ediary-tts", 1);
+          r.onupgradeneeded = () => r.result.createObjectStore("audio");
+          r.onsuccess = () => { clearTimeout(giveUp); res(r.result); };
+          r.onerror = () => { clearTimeout(giveUp); res(null); };
+        } catch (e) { clearTimeout(giveUp); res(null); }
+      });
+    }
+    return dbp;
+  }
+  async function get(k) {
+    if (mem.has(k)) return mem.get(k);
+    const d = await db();
+    if (!d) return null;
+    return new Promise(res => {
+      try {
+        const q = d.transaction("audio").objectStore("audio").get(k);
+        q.onsuccess = () => { const b = q.result || null; if (b) mem.set(k, b); res(b); };
+        q.onerror = () => res(null);
+      } catch (e) { res(null); }
+    });
+  }
+  async function put(k, clip) {
+    mem.set(k, clip);
+    const d = await db();
+    if (!d) return;
+    try { d.transaction("audio", "readwrite").objectStore("audio").put(clip, k); } catch (e) {}
+  }
+  async function clear() {
+    mem.clear();
+    const d = await db();
+    if (!d) return;
+    try { d.transaction("audio", "readwrite").objectStore("audio").clear(); } catch (e) {}
+  }
+  async function has(k) {
+    const m = mem.get(k);
+    if (m) return m.audio instanceof Blob;
+    const d = await db();
+    if (!d) return false;
+    return new Promise(res => {
+      try {
+        const q = d.transaction("audio").objectStore("audio").get(k);
+        q.onsuccess = () => res(!!(q.result && q.result.audio instanceof Blob));
+        q.onerror = () => res(false);
+      } catch (e) { res(false); }
+    });
+  }
+  return { get, put, clear, has };
+})();
+
+/* =====================================================================
+   음성 재생 Player (한 장 영어에서 가져옴 — 미리 만든 음성·구간 자르기는 뺌)
+   모든 소리는 여기를 거침: play(지금 것 끊고) / enqueue(이어서) / pause / resume / stop / setRate / seekWord
+   순서: 폰에 저장된 음성 → 키가 있으면 ElevenLabs로 만들기 → 폰 기본 음성(en-US)
+   음성은 audio 요소 하나로만 냄(Web Audio를 거치지 않음 — 음질 원칙, 한 장 영어 CLAUDE.md '음성 재생 경로 원칙')
+   ===================================================================== */
+const Player = (() => {
+  const audio = new Audio();
+  let token = 0, currentBtn = null, queue = Promise.resolve(), deviceVoice = null, warnedNoKey = false;
+  function pickVoice() {
+    try {
+      const vs = speechSynthesis.getVoices();
+      const us = vs.filter(v => /en[-_]US/i.test(v.lang));
+      deviceVoice = us.find(v => /google|samsung/i.test(v.name)) || us[0] || vs.find(v => /^en/i.test(v.lang)) || null;
+    } catch (e) { deviceVoice = null; }
+  }
+  try { if ("speechSynthesis" in window) { pickVoice(); speechSynthesis.addEventListener("voiceschanged", pickVoice); } } catch (e) {}
+  function mark(btn, on) { if (btn) btn.classList.toggle("playing", on); }
+  const subs = [];
+  function onChange(fn) { subs.push(fn); }
+  function emit() { subs.forEach(fn => { try { fn(); } catch (e) {} }); }
+
+  let paused = false, resumeFn = null, audioCtl = null, speechCtl = null, lastLen = 0, selfPause = false;
+  function quietPause() { try { if (!audio.paused) { selfPause = true; audio.pause(); } } catch (e) {} }
+  /* 앱이 멈춘 게 아닌데 소리가 끊김(전화·다른 앱·백그라운드 재생 거부): 일시정지 상태로 → '이어 듣기'로 그 자리부터 */
+  const intSubs = [];
+  function onInterrupt(fn) { intSubs.push(fn); }
+  function interrupted() {
+    if (!paused) {
+      paused = true;
+      const ctl = audioCtl;
+      resumeFn = ctl ? () => { const p = audio.play(); if (p && p.catch) p.catch(ctl.finish); } : (speechCtl ? speechCtl.restart : null);
+      if (speechCtl) speechCtl.halt();
+    }
+    intSubs.forEach(fn => { try { fn(); } catch (e) {} });
+    emit();
+  }
+  audio.addEventListener("pause", () => {
+    if (selfPause) { selfPause = false; return; }
+    if (audioCtl && !paused && !audio.ended) interrupted();
+  });
+  function stop() {
+    token++;
+    paused = false; resumeFn = null;
+    quietPause();
+    if (audioCtl) audioCtl.finish();
+    if (speechCtl) { speechCtl.halt(); speechCtl.finish(); }
+    mark(currentBtn, false); currentBtn = null;
+    queue = Promise.resolve();
+    emit();
+  }
+  function pause() {
+    if (paused) return;
+    paused = true;
+    if (audioCtl && !audio.paused) {
+      quietPause();
+      const ctl = audioCtl;
+      resumeFn = () => { const p = audio.play(); if (p && p.catch) p.catch(ctl.finish); };
+    } else if (speechCtl) { speechCtl.halt(); resumeFn = speechCtl.restart; }
+    emit();
+  }
+  function resume() {
+    if (!paused) return;
+    paused = false;
+    const f = resumeFn; resumeFn = null;
+    if (f) f();
+    emit();
+  }
+  function setRate(rate) {
+    if (!audioCtl) return;
+    try { audio.defaultPlaybackRate = rate; audio.playbackRate = rate; } catch (e) {}
+  }
+  /* 지금 시간(초)에 읽는 단어 — audio.currentTime 기준이라 0.8x·1.0x 모두 맞음 */
+  function wordAtTime(times, t) {
+    let lo = 0, hi = times.length - 1, k = -1;
+    while (lo <= hi) { const mid = (lo + hi) >> 1; if (times[mid].s <= t + 0.03) { k = mid; lo = mid + 1; } else hi = mid - 1; }
+    return k;
+  }
+  /* mp3 재생. o: { sc, times(단어별 {s,e}초), track, startAt(초), startFrac(타이밍이 없을 때 0~1) } */
+  function playBlob(blob, rate, o) {
+    o = o || {};
+    return new Promise(res => {
+      const url = URL.createObjectURL(blob);
+      let finished = false, raf = 0, last = -2;
+      const tick = () => {
+        if (finished) return;
+        if (o.times && o.track && !audio.paused && audio.readyState >= 2) {
+          const k = wordAtTime(o.times, audio.currentTime);
+          if (k >= 0 && k !== last) { last = k; o.track.word(k); }
+        }
+        raf = requestAnimationFrame(tick);
+      };
+      const ctl = {
+        sc: o.sc, times: o.times,
+        finish() {
+          if (finished) return;
+          finished = true;
+          cancelAnimationFrame(raf);
+          audio.onended = audio.onerror = audio.onloadedmetadata = null;
+          if (audioCtl === ctl) audioCtl = null;
+          URL.revokeObjectURL(url);
+          res();
+        }
+      };
+      audioCtl = ctl;
+      audio.onended = () => {
+        if (isFinite(audio.duration)) lastLen = Math.max(0, audio.duration - (o.startAt || 0)) / (audio.playbackRate || rate);
+        ctl.finish();
+      };
+      audio.onerror = ctl.finish;
+      if (o.startAt || o.startFrac) {
+        audio.onloadedmetadata = () => {
+          audio.onloadedmetadata = null;
+          const dur = isFinite(audio.duration) ? audio.duration : 0;
+          const a = o.startAt || (o.startFrac && dur ? dur * o.startFrac : 0);
+          if (a > 0) try { audio.currentTime = a; } catch (e) {}
+        };
+      }
+      selfPause = false;
+      audio.src = url;
+      try { audio.volume = 1; audio.preservesPitch = true; audio.defaultPlaybackRate = rate; audio.playbackRate = rate; } catch (e) {}
+      if (o.track) o.track.start(o.times ? "word" : "line");
+      const start = () => {
+        const p = audio.play();
+        if (p && p.catch) p.catch(err => {
+          if (paused) return;
+          if (audioCtl === ctl && err && err.name === "NotAllowedError") interrupted();
+          else ctl.finish();
+        });
+      };
+      if (paused) resumeFn = start; else start();
+      raf = requestAnimationFrame(tick);
+    });
+  }
+  /* 폰 기본 음성. 긴 글은 문장으로 나눠 읽음. 단어 신호(boundary)가 오면 단어 강조, 안 오면 줄 강조 */
+  function speakDevice(text, rate, o) {
+    o = o || {};
+    return new Promise(res => {
+      if (!("speechSynthesis" in window)) { toast("이 브라우저는 음성 재생을 지원하지 않아요"); return res(); }
+      let finished = false, gen = 0, timer = null, t0 = 0;
+      const parts = [];
+      if (text.length < 220) { if (text.trim()) parts.push({ t: text, at: 0 }); }
+      else {
+        const re = /[^.!?\n]+(?:[.!?]+["”’)]*|$)/g;
+        let m;
+        while ((m = re.exec(text)) && m[0]) {
+          const lead = m[0].length - m[0].replace(/^\s+/, "").length;
+          if (m[0].trim()) parts.push({ t: m[0].trim(), at: m.index + lead });
+        }
+      }
+      const ctl = {
+        finish() { if (finished) return; finished = true; clearTimeout(timer); if (speechCtl === ctl) speechCtl = null; res(); },
+        halt() { gen++; clearTimeout(timer); try { speechSynthesis.cancel(); } catch (e) {} },
+        restart() {
+          if (finished) return;
+          const my = ++gen;
+          clearTimeout(timer);
+          t0 = Date.now();
+          try {
+            if (!deviceVoice) pickVoice();
+            parts.forEach((p, idx) => {
+              const u = new SpeechSynthesisUtterance(p.t);
+              u.lang = "en-US";
+              if (deviceVoice) u.voice = deviceVoice;
+              u.rate = rate;
+              if (o.track && o.sc) {
+                u.onboundary = e => {
+                  if (my !== gen || (e.name && e.name !== "word")) return;
+                  o.track.word(o.sc.wordAt((o.offset || 0) + p.at + e.charIndex));
+                };
+              }
+              if (idx === parts.length - 1) {
+                u.onend = () => { if (my === gen) { lastLen = (Date.now() - t0) / 1000; ctl.finish(); } };
+                u.onerror = () => { if (my === gen) ctl.finish(); };
+              }
+              speechSynthesis.speak(u);
+            });
+            timer = setTimeout(() => { if (my === gen) ctl.finish(); }, 4000 + text.length * 110 / rate);   // onend가 안 오는 안드로이드 대비
+          } catch (e) { ctl.finish(); }
+        }
+      };
+      if (!parts.length) return ctl.finish();
+      speechCtl = ctl;
+      if (o.track) o.track.start("line");
+      if (paused) resumeFn = ctl.restart; else ctl.restart();
+    });
+  }
+  /* ElevenLabs: 오디오 + 글자별 시간(/with-timestamps)을 함께 받아 캐시에 저장 */
+  const clipKey = (text, voice) => [settings.model, voice, text].join("|");
+  const inflight = new Map();
+  async function getEleven(text, voice) {
+    const key = clipKey(text, voice);
+    const cached = await AudioCache.get(key);
+    if (cached && cached.audio instanceof Blob) return cached;
+    if (inflight.has(key)) return inflight.get(key);
+    const p = requestEleven(text, voice, key);
+    inflight.set(key, p);
+    p.then(() => inflight.delete(key), () => inflight.delete(key));
+    return p;
+  }
+  async function requestEleven(text, voice, key) {
+    let res;
+    try {
+      res = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + encodeURIComponent(voice) + "/with-timestamps?output_format=mp3_44100_128", {
+        method: "POST",
+        headers: { "xi-api-key": settings.apiKey, "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({ text: text, model_id: settings.model, voice_settings: { stability: 0.5, similarity_boost: 0.75 } })
+      });
+    } catch (e) { throw new Error("ElevenLabs에 연결하지 못했어요"); }
+    if (!res.ok) {
+      let code = "", msg = "";
+      try { const j = await res.json(); code = (j.detail && (j.detail.status || j.detail.code)) || ""; msg = (j.detail && j.detail.message) || ""; } catch (e) {}
+      if (res.status === 401 && /quota/i.test(code + msg)) throw new Error("ElevenLabs 크레딧이 부족해요");
+      if (res.status === 401) throw new Error("API 키를 확인해 주세요");
+      if (/voice/i.test(code + msg)) throw new Error("목소리를 확인해 주세요");
+      throw new Error("ElevenLabs 오류 (" + res.status + ")");
+    }
+    let j;
+    try { j = await res.json(); } catch (e) { throw new Error("ElevenLabs 응답을 읽지 못했어요"); }
+    if (!j || !j.audio_base64) throw new Error("ElevenLabs 응답에 음성이 없어요");
+    const bin = atob(j.audio_base64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const clip = { audio: new Blob([bytes], { type: "audio/mpeg" }), align: j.alignment || null };
+    AudioCache.put(key, clip);
+    return clip;
+  }
+  /* opts: { voice, rate, script: getScript() 결과, from: 시작 단어, track: 강조 받는 쪽 } */
+  async function run(text, btn, t, opts) {
+    opts = opts || {};
+    const voice = opts.voice || settings.voice;
+    const rate = opts.rate || settings.rate;
+    const sc = opts.script && opts.script.words.length ? opts.script : null;
+    const say = sc ? sc.speech : text;
+    const from = sc ? Math.max(0, Math.min(opts.from || 0, sc.words.length - 1)) : 0;
+    const track = opts.track || null;
+    let complete = false;
+    lastLen = 0;
+    currentBtn = btn;
+    mark(btn, true);
+    try {
+      if (!settings.apiKey) {
+        if (!warnedNoKey) { toast("API 키가 없어서 폰 기본 음성으로 읽어요 (설정에서 넣을 수 있어요)"); warnedNoKey = true; }
+      } else {
+        try {
+          const clip = await getEleven(say, voice);       // 저장된 음성 → 없으면 새로 만들기
+          if (t !== token) return;
+          const times = sc ? wordTimes(sc, clip.align) : null;
+          await playBlob(clip.audio, rate, {
+            sc, times, track,
+            startAt: from && times ? Math.max(0, times[from].s - 0.02) : 0,
+            startFrac: from && !times ? sc.words[from].ss / say.length : 0
+          });
+          complete = t === token;
+          return;
+        } catch (err) {
+          if (t !== token) return;
+          toast(err.message + " · 폰 기본 음성으로 읽어요");
+        }
+      }
+      if (t !== token) return;
+      const off = from ? sc.words[from].ss : 0;
+      await speakDevice(say.slice(off), rate, { sc, track, offset: off });
+      complete = t === token;
+    } finally {
+      if (track) track.end(complete);
+      if (t === token) { mark(btn, false); currentBtn = null; }
+    }
+  }
+  /* 재생 중인 mp3 안에서 그 단어 위치로 바로 이동(같은 문장일 때만). 못 하면 false */
+  function seekWord(sc, k) {
+    const c = audioCtl;
+    if (paused || !c || c.sc !== sc || !c.times || !c.times[k]) return false;
+    try { audio.currentTime = Math.max(0, c.times[k].s - 0.02); } catch (e) { return false; }
+    return true;
+  }
+  function play(text, btn, opts) { stop(); const t = token; queue = run(text, btn, t, opts); return queue; }
+  function enqueue(text, btn, opts) { const t = token; queue = queue.then(() => (t === token ? run(text, btn, t, opts) : undefined)); return queue; }
+  return {
+    play, enqueue, stop, pause, resume, setRate, seekWord, onChange, onInterrupt,
+    isPaused: () => paused, getToken: () => token, lastLength: () => lastLen,
+    current: () => (audioCtl ? "audio" : speechCtl ? "speech" : null),
+    isCached: (text, voice) => AudioCache.has(clipKey(text, voice || settings.voice)),
+    fetchClip: (text, voice) => getEleven(text, voice || settings.voice)
+  };
+})();
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* =====================================================================
+   인터랙티브 스크립트 ② 타이밍 · 노래방 강조 · 문장 재생기 (한 장 영어에서 가져옴)
+   ===================================================================== */
+/* ElevenLabs 글자별 시간 → 단어별 { s, e }(초). 단어의 20% 넘게 못 맞추면 null(줄 강조) */
+function wordTimes(sc, align) {
+  if (!align || !Array.isArray(align.characters)) return null;
+  const ch = align.characters, st = align.character_start_times_seconds || [], en = align.character_end_times_seconds || [];
+  const sp = sc.speech, S = new Array(sp.length), E = new Array(sp.length);
+  let j = 0;
+  for (let i = 0; i < sp.length && j < ch.length; i++) {
+    let f = -1;
+    for (let d = 0; d <= 3 && j + d < ch.length; d++) if (ch[j + d] === sp[i]) { f = j + d; break; }
+    if (f < 0) continue;
+    S[i] = st[f]; E[i] = en[f]; j = f + 1;
+  }
+  let miss = 0;
+  const times = sc.words.map(w => {
+    let s = null, e = null;
+    for (let i = w.ss; i < w.se; i++) if (S[i] != null) { if (s == null) s = S[i]; e = E[i]; }
+    if (s == null) { miss++; return null; }
+    return { s, e };
+  });
+  if (!times.length || miss > times.length * 0.2) return null;
+  for (let k = 0; k < times.length; k++) if (!times[k]) { const p = k ? times[k - 1].e : 0; times[k] = { s: p, e: p }; }
+  return times;
+}
+/* 한 문장(.sc)의 노래방 강조: 재생하면 문장이 흐려지고(reading) 읽은 단어(past)·지금 단어(now)가 채워짐,
+   끝까지 읽으면 전체를 채운 채로 FILL_HOLD 동안 두었다가 평소 표시로. 단어 신호가 없으면 문장 전체 강조(lineonly) */
+const FILL_HOLD = 900;
+function makeTrack(el, onWord) {
+  const clear = () => { el._trk = null; el.classList.remove("reading", "lineonly", "filled"); paintWord(el, -1); };
+  const trk = {
+    start(mode) {
+      if (!el) return;
+      el._trk = trk;
+      el.classList.remove("filled");
+      el.classList.add("reading");
+      el.classList.toggle("lineonly", mode === "line");
+      paintWord(el, -1);
+    },
+    word(k) {
+      if (!el || el._trk !== trk) return;
+      el.classList.remove("lineonly");
+      paintWord(el, k);
+      if (onWord) onWord(k);
+    },
+    end(complete) {
+      if (!el || el._trk !== trk) return;
+      if (!complete || el.classList.contains("lineonly")) { clear(); return; }
+      el.classList.add("filled");
+      setTimeout(() => { if (el._trk === trk) clear(); }, FILL_HOLD);
+    }
+  };
+  return trk;
+}
+function paintWord(el, k) {
+  if (el._k === k) return;
+  el._k = k;
+  let now = null;
+  el.querySelectorAll(".w").forEach(w => {
+    const n = +w.dataset.w;
+    w.classList.toggle("now", n === k);
+    w.classList.toggle("past", k >= 0 && n < k);
+    if (n === k && !now) now = w;
+  });
+  if (now) keepInView(now);
+}
+/* 강조된 단어가 화면 밖으로 나가려 하면 부드럽게 따라 스크롤 */
+function keepInView(w) {
+  const box = w.closest(".f-body");
+  if (!box || !w.getClientRects().length) return;
+  const r = w.getBoundingClientRect(), b = box.getBoundingClientRect();
+  if (r.top < b.top + 12 || r.bottom > b.bottom - 48) {
+    box.scrollTo({ top: Math.max(0, box.scrollTop + r.top - b.top - b.height * 0.35), behavior: "smooth" });
+  }
+}
+/* 문장 목록 재생기: createReader({ items: () => [{ el: .sc, btn? }], rate, gap(ms), tapSingle, onItem(i), onEnd(끝까지?), onChange(state) })
+   play(i, w, single) · seek(i, w)(단어 탭) · toggle · pause · resume · stop · state() → { active, paused, single, index } */
+function createReader(o) {
+  let t0 = -1, running = false, single = false, idx = -1;
+  const list = () => (typeof o.items === "function" ? o.items() : o.items) || [];
+  const active = () => running && Player.getToken() === t0;
+  const state = () => ({ active: active(), paused: active() && Player.isPaused(), single, index: idx });
+  const changed = () => { if (o.onChange) o.onChange(state()); };
+  function play(i, w, one) {
+    const items = list();
+    if (!items[i]) return;
+    Player.stop();
+    const my = t0 = Player.getToken();
+    const alive = () => Player.getToken() === my;
+    running = true; single = !!one; idx = i;
+    (async () => {
+      let complete = false;
+      try {
+        for (let k = i, from = w || 0; k < items.length; k++, from = 0) {
+          while (Player.isPaused() && alive()) await sleep(120);
+          if (!alive()) return;
+          idx = k;
+          if (o.onItem) o.onItem(k);
+          changed();
+          const it = items[k];
+          const sc = SCRIPTS[+it.el.dataset.sc];
+          await Player.enqueue(sc.speech, it.btn || null, { script: sc, from, rate: o.rate ? o.rate() : undefined, track: makeTrack(it.el) });
+          if (!alive() || single) break;
+          if (k < items.length - 1) await sleep(typeof o.gap === "function" ? o.gap(k) : o.gap == null ? 450 : o.gap);   // gap(방금 끝난 번호) — 듣기 탭은 새 질문 앞에서 더 쉼
+        }
+        complete = alive();
+      } finally {
+        if (t0 === my) { running = false; idx = -1; if (o.onEnd) o.onEnd(complete); changed(); }
+      }
+    })();
+  }
+  function seek(i, w) {
+    const it = list()[i];
+    if (!it) return;
+    if (active() && idx === i && Player.seekWord(SCRIPTS[+it.el.dataset.sc], w)) return;
+    play(i, w, active() ? single : o.tapSingle !== false);
+  }
+  return {
+    play, seek, state,
+    toggle: () => { if (!active()) return false; if (Player.isPaused()) Player.resume(); else Player.pause(); return true; },
+    pause: () => { if (active()) Player.pause(); },
+    resume: () => { if (active()) Player.resume(); },
+    stop: () => { if (active()) Player.stop(); }
+  };
+}
+
+/* =====================================================================
+   주 만들기 · 추천 주제 · 질문 고르기
+   ===================================================================== */
+/* 이번 주 추천 주제 5개: 이번 달 주제 먼저, 최근 4주 안에 한 주제는 뒤로, 주마다 정해진 순서(같은 주엔 항상 같음) */
+function recommendTopics(wk) {
+  const month = wk.slice(0, 7);
+  const recent = new Set();
+  for (let i = 1; i <= 4; i++) { const w = store.weeks[addDays(wk, -7 * i)]; if (w) recent.add(w.topic); }
+  const r = rng(hashStr("rec|" + wk));
+  const groups = [
+    TOPICS.filter(t => t.month === month && !recent.has(t.id)),
+    TOPICS.filter(t => t.month !== month && !recent.has(t.id)),
+    TOPICS.filter(t => recent.has(t.id))
+  ];
+  return groups.flatMap(g => shuffle(g, r)).slice(0, RECOMMEND_N);
+}
+/* 질문 고르기: 개수에 맞춰 단계마다 뽑고 쉬움 → 깊음 순서. 단계에 질문이 모자라면 다른 단계에서 채움 */
+function pickQuestions(topic, count) {
+  const plan = PICK_PLAN[count] || PICK_PLAN[4];
+  const picked = [];
+  [1, 2, 3].forEach((lv, i) => {
+    shuffle(topic.questions.filter(q => q.level === lv)).slice(0, plan[i]).forEach(q => picked.push(q));
+  });
+  if (picked.length < count) {
+    shuffle(topic.questions.filter(q => !picked.includes(q))).slice(0, count - picked.length).forEach(q => picked.push(q));
+  }
+  return picked.sort((a, b) => a.level - b.level).map(q => q.id);
+}
+/* GPT 대화 자리: 중간 한 번(앞 절반 뒤) + 끝 한 번 */
+function gptSlots(count) {
+  return [{ id: "g1", after: Math.ceil(count / 2) }, { id: "g2", after: count }];
+}
+function startWeek(topicId, count) {
+  const t = TOPIC_BY_ID[topicId];
+  if (!t) return;
+  store.count = count;
+  store.weeks[weekKey()] = { topic: t.id, count, qs: pickQuestions(t, count), gpt: gptSlots(count), items: {}, skip: [], started: dateKey() };
+  save();
+}
+/* 같은 단계의 다른 질문으로 바꾸기(아직 안 쓴 질문만). 한 번 뺀 질문은 다른 질문을 다 써 본 뒤에야 다시 나옴 */
+function swapQuestion(w, qid) {
+  const q = Q_BY_ID[qid], t = TOPIC_BY_ID[w.topic];
+  if (!q || !t || qStarted(w, qid)) return false;
+  const same = t.questions.filter(x => x.level === q.level && !w.qs.includes(x.id));
+  let pool = same.filter(x => !w.skip.includes(x.id));
+  if (!pool.length) { w.skip = w.skip.filter(id => !same.some(x => x.id === id)); pool = same; }
+  if (!pool.length) { toast("같은 단계에 다른 질문이 없어요"); return false; }
+  const nq = shuffle(pool)[0];
+  w.skip.push(qid);
+  w.qs[w.qs.indexOf(qid)] = nq.id;
+  delete w.items[qid];
+  save();
+  return true;
+}
+/* 타임라인: 질문마다, 그 뒤에 GPT 대화(after가 같은 것), 맨 끝에 주말 복습 */
+function timeline(w) {
+  const out = [];
+  const gs = w.gpt.slice().sort((a, b) => a.after - b.after);
+  w.qs.forEach((qid, i) => {
+    out.push({ kind: "q", qid, n: i + 1 });
+    gs.filter(g => g.after === i + 1).forEach(g => out.push({ kind: "gpt", g, n: gs.indexOf(g) + 1 }));
+  });
+  out.push({ kind: "review" });
+  return out;
+}
+const entryDone = (w, e) => e.kind === "q" ? qDone(w, e.qid) : e.kind === "gpt" ? !!e.g.done : !!(w.review && w.review.doneOn);
+/* 지금 할 일 = 순서대로 첫 번째 안 끝난 항목. 주말 복습은 일요일이 돼야 차례가 됨 */
+function nextEntry(w) { return timeline(w).find(e => !entryDone(w, e) && (e.kind !== "review" || reviewOpen(w))) || null; }
+function moveGpt(w, gid, dir) {
+  const g = w.gpt.find(x => x.id === gid);
+  if (!g) return;
+  const to = g.after + dir;
+  if (to < 1 || to > w.count) return;
+  if (w.gpt.some(x => x !== g && x.after === to)) { toast("다른 GPT 대화와 같은 자리라 옮길 수 없어요"); return; }
+  g.after = to;
+  save();
+  buzz();
+}
+
+/* =====================================================================
+   프롬프트 (기본 문구 — 써 보고 불편하면 고침)
+   ===================================================================== */
+function fixPrompt(q, text) {
+  return "내 영어 일기를 첨삭해줘. 나는 이걸로 영어 말하기 연습을 할 거야.\n\n" +
+    "Question: " + q.en + "\n" +
+    "My writing:\n" + text.trim() + "\n\n" +
+    "[첨삭 방법]\n" +
+    "- 내가 하려던 뜻은 살리고, 미국 원어민이 실제로 말할 때 쓰는 자연스러운 구어체로 고쳐줘.\n" +
+    "- 말로 할 거라서 한 문장은 한 호흡에 말할 길이(대략 15단어 이하)로. 길면 나눠줘.\n" +
+    "- 주요 수정 이유를 한국어로 짧게 설명해줘.\n\n" +
+    "[한국어 번역 규칙 — 가장 중요]\n" +
+    "- 한국어는 내가 보고 영어 문장을 다시 떠올리는 신호야. 영어 한 문장 = 한국어 한 문장, 같은 번호로 짝을 맞춰줘.\n" +
+    "- 정보를 빼거나 더하지 마. 시간·숫자·시제·뉘앙스(a little over a week, I'd say, apparently 같은 말)까지 살려서, 한국어만 보고도 그 영어 문장을 다시 만들 수 있게.\n" +
+    "- 번역투 말고 실제로 할 법한 한국어로. 말투는 반말 구어체 하나로 통일.\n" +
+    "- 다 쓴 뒤 짝마다 빠진 정보가 없는지 스스로 점검하고, 고친 결과만 내놔(점검 과정은 쓰지 마).\n\n" +
+    "[상황 묘사]\n" +
+    "- 흐름: 내 이야기를 짧은 한국어 명사구로, → 로 이어서 한 줄. (예: 가족과 대화 → 2주 뒤 휴가, 계획 없음 → 여자친구의 권유 → 혼자 여행 결심)\n" +
+    "- 키워드: 내 이야기의 핵심 영어 단어·짧은 구 5~8개, 쉼표로.\n" +
+    "- 조건: 이 이야기를 조건을 바꿔 다시 말해 보는 과제 3개, 한국어로. (예: 30초 안에 말하기 / 처음 만난 사람에게 말하기 / 다녀온 뒤라고 생각하고 과거형으로)\n\n" +
+    "설명이 끝나면 마지막에 아래 형식으로 정리해줘. 내가 복사하기 쉽게 [최종본]부터 끝까지 전부 코드블록(```) 하나 안에 넣어줘.\n" +
+    "[최종본]\n" +
+    "1. EN: 고친 영어 문장\n" +
+    "   KO: 한국어\n" +
+    "2. EN: …\n" +
+    "   KO: …\n" +
+    "[흐름]\n" +
+    "…\n" +
+    "[키워드]\n" +
+    "…\n" +
+    "[조건]\n" +
+    "1. …\n" +
+    "2. …\n" +
+    "3. …";
+}
+/* GPT 대화 프롬프트: 그 시점까지 최종본이 있는 질문의 글을 넣음 */
+function gptPrompt(w) {
+  const t = TOPIC_BY_ID[w.topic];
+  const done = w.qs.filter(qid => (w.items[qid] && w.items[qid].pairs || []).some(p => p.en));
+  let s = "너는 내 영어 말하기 연습 상대야. 지금부터 20~30분 동안 영어로만 음성 대화를 하자.\n" +
+    "- 주제: " + t.en + " (" + t.ko + ")\n" +
+    "- 아래는 내가 이번 주에 이 주제로 쓰고 다듬은 영어 글이야. 대화하면서 내가 이 글에 나온 표현들을 자연스럽게 꺼내 쓰게 되는 질문을 해줘. 글을 그대로 읽게 하지 말고, 친구처럼 이것저것 물어봐줘.\n" +
+    "- 질문은 한 번에 하나만, 짧게. 천천히 또박또박 말해줘.\n" +
+    "- 대화가 주제에서 벗어나면 자연스럽게 다시 이 주제로 데려와줘.\n" +
+    "- 대화 중에는 내 실수를 고치지 마. 내가 \"끝\"이라고 하면 대화를 마치고, 큰 실수만 모아서 (내가 한 말 → 자연스러운 표현, 이유는 한국어로 짧게) 알려줘.\n";
+  if (done.length) {
+    s += "\n[이번 주 내 글]\n";
+    done.forEach((qid, i) => {
+      s += "\nQ" + (i + 1) + ". " + Q_BY_ID[qid].en + "\n" + w.items[qid].pairs.filter(p => p.en).map(p => p.en).join(" ") + "\n";
+    });
+  } else {
+    s += "\n(아직 다듬은 글이 없어. 이 주제로 가볍게 대화해줘.)\n";
+  }
+  return s + "\n이제 첫 질문을 해줘.";
+}
+
+/* =====================================================================
+   첨삭 결과 읽기 (너그럽게)
+   [최종본] 1. EN: … / KO: … · [흐름] · [키워드] · [조건] — 코드블록·굵게·번호·글머리·전각 콜론·대소문자 무시.
+   이름표 없는 줄: 한글이면 앞 영어의 한국어, 영어면(앞 짝에 한국어가 아직 없을 때) 앞 영어에 이어 붙임 / 아니면 새 문장
+   ===================================================================== */
+const SEC_NAME = { "최종본": "final", "최종": "final", "흐름": "flow", "한국어 흐름": "flow", "키워드": "kw", "영어 키워드": "kw", "조건": "cond", "조건 바꿔 말하기": "cond" };
+function cleanLine(src) {
+  return src.replace(/```[\w-]*/g, "").replace(/\*\*|__/g, "").replace(/：/g, ":").replace(/^\s*#{1,6}\s*/, "").replace(/^\s*>\s*/, "").trim();
+}
+function sectionOf(line) {
+  let m = line.match(/^\[\s*([^\]]{1,14}?)\s*\]\s*:?\s*(.*)$/);
+  if (m && SEC_NAME[m[1]]) return { sec: SEC_NAME[m[1]], rest: m[2] };
+  m = line.match(/^([가-힣 ]{1,10}?)\s*:\s*(.*)$/);
+  if (m && SEC_NAME[m[1].trim()]) return { sec: SEC_NAME[m[1].trim()], rest: m[2] };
+  if (SEC_NAME[line]) return { sec: SEC_NAME[line], rest: "" };
+  return null;
+}
+function parseFix(raw, startSec) {
+  const pairs = [], flow = [], kw = [], conds = [];
+  let sec = startSec || null, cur = null, orphans = 0, sawFinal = false;
+  const addKo = (txt, num) => {
+    let p = cur;
+    if (num != null) p = pairs.find(x => x.n === num && !x.ko) || (cur && !cur.ko && cur.n == null ? cur : null);
+    if (p && !p.ko) { p.ko = txt; return; }
+    if (p && p.ko && p === cur && !num) { p.ko += " " + txt; return; }
+    orphans++;
+    pairs.push({ n: num, en: "", ko: txt });
+  };
+  String(raw || "").replace(/\r/g, "").split("\n").forEach(src => {
+    let line = cleanLine(src);
+    if (!line || /^[-—–_=*·•─━]{3,}$/.test(line)) return;
+    const s = sectionOf(line);
+    if (s) { sec = s.sec; if (sec === "final") sawFinal = true; line = s.rest.trim(); cur = null; if (!line) return; }
+    if (sec === "final") {
+      let num = null;
+      const nm = line.match(/^(\d{1,2})\s*[.)]\s*(.*)$/);
+      if (nm) { num = +nm[1]; line = nm[2]; }
+      line = line.replace(/^[-*•·]\s+/, "").trim();
+      const lm = line.match(/^(EN|ENG|English|영어|KO|KR|Korean|한국어|한글|번역)\s*:\s*(.*)$/i);
+      if (lm) {
+        const isEn = /^(en|eng|english|영어)$/i.test(lm[1]);
+        const txt = lm[2].trim();
+        if (!txt) return;
+        if (isEn) { cur = { n: num, en: txt, ko: "" }; pairs.push(cur); }
+        else addKo(txt, num);
+        return;
+      }
+      const sp = line.split(/\s+[/|]\s+/);                                   // "영어 / 한국어" 한 줄
+      if (sp.length === 2 && !HANGUL_RE.test(sp[0]) && HANGUL_RE.test(sp[1])) { cur = { n: num, en: sp[0].trim(), ko: sp[1].trim() }; pairs.push(cur); return; }
+      if (HANGUL_RE.test(line)) addKo(line.replace(/^[(（]\s*|\s*[)）]$/g, ""), num);
+      else if (/[A-Za-z]/.test(line)) {
+        if (cur && !cur.ko && num == null) cur.en += " " + line;
+        else { cur = { n: num, en: line, ko: "" }; pairs.push(cur); }
+      }
+      return;
+    }
+    if (sec === "flow") flow.push(line.replace(/^[-*•·]\s+/, ""));
+    else if (sec === "kw") line.replace(/^[-*•·]\s+|^\d{1,2}\s*[.)]\s*/g, "").split(/\s*[,，、·]\s*/).forEach(k => { k = k.trim(); if (k) kw.push(k); });
+    else if (sec === "cond") { const c = line.replace(/^(?:\d{1,2}\s*[.)]|[-*•·])\s*/, "").trim(); if (c) conds.push(c); }
+  });
+  if (!sawFinal && !startSec && !pairs.length) {
+    const again = parseFix(raw, "final");                                     // [최종본] 머리 없이 EN/KO만 붙여넣은 경우
+    if (again.pairs.some(p => p.en)) return again;
+  }
+  return {
+    pairs: pairs.map(p => ({ en: p.en.trim(), ko: (p.ko || "").trim() })),
+    flow: flow.join(" ").trim(), keywords: kw, conds, orphans
+  };
+}
+function applyPaste(it, text) {
+  const r = parseFix(text);
+  it.raw = text;
+  if (!r.pairs.some(p => p.en)) { save(); return false; }
+  it.pairs = r.pairs;
+  it.flow = r.flow;
+  it.keywords = r.keywords;
+  it.conds = r.conds;
+  save();
+  return true;
+}
+
+/* =====================================================================
+   하단 탭
+   ===================================================================== */
+let tab = "week";
+function switchTab(name) {
+  tab = name;
+  document.querySelectorAll(".tab").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === name ? "true" : "false"));
+  [["week", "vWeek"], ["listen", "vListen"], ["log", "vLog"]].forEach(([n, id]) => $(id).classList.toggle("off", n !== name));
+  if (name === "week") renderWeek();
+  if (name === "log") renderLog();
+  if (name === "listen") renderListen();
+}
+document.querySelector(".tabbar").addEventListener("click", e => {
+  const b = e.target.closest(".tab");
+  if (!b) return;
+  if (b.dataset.tab === tab) { const v = document.querySelector(".view:not(.off)"); if (v) v.scrollTop = 0; return; }
+  switchTab(b.dataset.tab);
+});
+
+/* =====================================================================
+   이번 주 화면
+   ===================================================================== */
+const WK = { pick: null, count: store.count };
+function renderWeek() {
+  const wk = weekKey(), w = curWeek();
+  const head = '<div class="head"><h1>이번 주</h1><span class="head-r"><span class="sub">' + weekRange(wk) + "</span>" + GEAR_BTN + "</span></div>";
+  $("weekPage").innerHTML = head + (w ? weekHtml(w) : pickerHtml(wk));
+}
+function pickerHtml(wk) {
+  const recs = recommendTopics(wk);
+  if (!recs.some(t => t.id === WK.pick)) WK.pick = null;
+  let h = '<p class="note" style="margin:0 2px 14px">이번 주 추천 주제예요. 하나를 고르면 일주일 동안 그 주제의 다른 질문에 답해요.</p><div class="tp-list">';
+  recs.forEach(t => {
+    const ex = t.questions.filter(q => q.level === 1).slice(0, 1).concat(t.questions.filter(q => q.level === 2).slice(0, 1));
+    h += '<button class="tp" data-pick="' + t.id + '" aria-pressed="' + (WK.pick === t.id) + '">' +
+      '<span class="tp-emo" aria-hidden="true">' + t.emoji + "</span>" +
+      '<span class="tp-body"><span class="tp-ko">' + esc(t.ko) + '</span><span class="tp-en">' + esc(t.en) + "</span>" +
+      '<span class="tp-ex">' + ex.map(q => "· " + esc(q.ko)).join("<br>") + "</span></span>" +
+      '<span class="tp-chk" aria-hidden="true">' + IC.check + "</span></button>";
+  });
+  h += "</div>";
+  if (!recs.length) h += '<p class="empty-t">주제가 없어요. data/topics.js를 확인해 주세요.</p>';
+  h += '<div class="sec-t">질문 개수</div><div class="seg" id="wkCount">' +
+    [3, 4, 5].map(n => '<button data-count="' + n + '" aria-pressed="' + (WK.count === n) + '">' + n + "개</button>").join("") + "</div>" +
+    '<p class="note">질문 ' + WK.count + "개 = 쉬움 " + PICK_PLAN[WK.count][0] + " · 중간 " + PICK_PLAN[WK.count][1] + " · 깊음 " + PICK_PLAN[WK.count][2] +
+    ". GPT 대화는 질문 " + Math.ceil(WK.count / 2) + " 뒤와 맨 끝에 한 번씩 들어가요(나중에 옮길 수 있어요).</p>" +
+    '<div class="start-foot"><button class="go" data-start ' + (WK.pick ? "" : "disabled") + ">" +
+    (WK.pick ? esc(TOPIC_BY_ID[WK.pick].ko) + "(으)로 이번 주 시작" : "주제를 골라 주세요") + "</button></div>";
+  return h;
+}
+function entryTitle(w, e) {
+  if (e.kind === "q") return "질문 " + e.n;
+  if (e.kind === "gpt") return "GPT 대화 " + e.n;
+  return "주말 복습";
+}
+function qStatus(w, qid) {
+  const it = w.items[qid];
+  if (!it || !qStarted(w, qid)) return "아직 안 함";
+  if (it.step === "done") return "완료";
+  return STEP_NAME[stepIdx(it)] + " 단계";
+}
+function weekHtml(w) {
+  const t = TOPIC_BY_ID[w.topic] || { emoji: "📝", ko: w.topic, en: "" };
+  const tl = timeline(w);
+  const nq = w.qs.filter(q => qDone(w, q)).length, ng = w.gpt.filter(g => g.done).length;
+  const nx = nextEntry(w);
+  let h = '<div class="wk-topic"><span class="tp-emo" aria-hidden="true">' + t.emoji + '</span><span><b style="display:block;font-size:17px">' + esc(t.ko) +
+    '</b><span style="font-size:13.5px;color:var(--muted)">' + esc(t.en) + '</span></span><span class="wk-prog">질문 ' + nq + "/" + w.qs.length + "<br>GPT " + ng + "/" + w.gpt.length + "</span></div>";
+  // 지금 할 일
+  h += '<div class="now-card"><div class="now-k">지금 할 일</div>';
+  if (nx && nx.kind === "q") {
+    const q = Q_BY_ID[nx.qid], it = w.items[nx.qid];
+    h += '<div class="now-t">' + esc(q.ko) + '<span class="now-s">질문 ' + nx.n + " · " + (qStarted(w, nx.qid) ? STEP_NAME[stepIdx(it)] + " 단계부터 이어서" : "쓰기부터") + "</span></div>" +
+      '<button class="go" data-open-q="' + nx.qid + '">' + (qStarted(w, nx.qid) ? "이어서 하기" : "질문 " + nx.n + " 시작") + IC.arrow + "</button>";
+  } else if (nx && nx.kind === "gpt") {
+    h += '<div class="now-t">GPT와 20~30분 영어로 대화하기<span class="now-s">GPT 대화 ' + nx.n + " · 지금까지 쓴 글로 질문해 줘요</span></div>" +
+      '<button class="go" data-open-g="' + nx.g.id + '">GPT 대화 준비' + IC.arrow + "</button>";
+  } else if (nx && nx.kind === "review") {
+    const started = w.review && !w.review.doneOn && (w.review.ok.length || w.review.phase !== "rc");
+    h += '<div class="now-t">주말 복습<span class="now-s">이번 주 문장 섞어서 말하기 → 질문마다 조건 바꿔 말하기</span></div>' +
+      '<button class="go" data-open-review>' + (started ? "이어서 복습" : "주말 복습 시작") + IC.arrow + "</button>";
+  } else if (w.review && w.review.doneOn) {
+    h += '<div class="now-t">이번 주를 다 끝냈어요 🎉<span class="now-s">다음 주 월요일에 새 주제를 골라요</span></div>';
+  } else {
+    h += '<div class="now-t">이번 주 질문과 GPT 대화를 다 했어요 🎉<span class="now-s">주말 복습은 일요일(' + md(reviewDay(w)) + ")에 열려요</span></div>";
+  }
+  h += "</div>";
+  // 타임라인
+  h += '<div class="sec-t">이번 주 순서</div><ol class="tl">';
+  tl.forEach(e => {
+    const done = entryDone(w, e);
+    const cur = !!nx && nx.kind === e.kind && (e.kind === "q" ? nx.qid === e.qid : e.kind === "gpt" ? nx.g.id === e.g.id : true);   // 지금 할 일과 같은 항목
+    if (e.kind === "q") {
+      const q = Q_BY_ID[e.qid] || { ko: e.qid, en: "", level: 1 };
+      const canSwap = !qStarted(w, e.qid);
+      h += '<li class="' + (done ? "done" : cur ? "cur" : "") + '"><span class="tl-dot">' + (done ? IC.check : e.n) + "</span>" +
+        '<button class="tl-main" data-open-q="' + e.qid + '"><span class="tl-k">' + entryTitle(w, e) + " · " + qStatus(w, e.qid) + '<span class="lv">' + LEVEL_NAME[q.level] + "</span></span>" +
+        '<span class="tl-t">' + esc(q.ko) + '</span><span class="tl-e">' + esc(q.en) + "</span></button>" +
+        (canSwap ? '<span class="tl-side"><button class="tl-btn" data-swap="' + e.qid + '" aria-label="같은 단계의 다른 질문으로 바꾸기">' + IC.swap + "</button></span>" : "") + "</li>";
+    } else if (e.kind === "gpt") {
+      const g = e.g;
+      h += '<li class="gpt ' + (done ? "done" : cur ? "cur" : "") + '"><span class="tl-dot">' + (done ? IC.check : "GPT") + "</span>" +
+        '<button class="tl-main" data-open-g="' + g.id + '"><span class="tl-k">' + entryTitle(w, e) + " · " + (done ? "완료" : "질문 " + g.after + " 뒤") + "</span>" +
+        '<span class="tl-t">GPT와 영어 음성 대화</span><span class="tl-e">20~30분 · 지금까지 쓴 글로 질문해 줘요</span></button>' +
+        (done ? "" : '<span class="tl-side"><button class="tl-btn" data-gmove="' + g.id + ':-1" aria-label="한 칸 앞으로" ' + (g.after <= 1 ? "disabled" : "") + ">" + IC.up + "</button>" +
+          '<button class="tl-btn" data-gmove="' + g.id + ':1" aria-label="한 칸 뒤로" ' + (g.after >= w.count ? "disabled" : "") + ">" + IC.down + "</button></span>") + "</li>";
+    } else {
+      const open = reviewOpen(w), nSent = reviewDeck(w).length;
+      const st = done ? "완료" : open ? "오늘 열려요" : "일요일(" + md(reviewDay(w)) + ")에 열려요";
+      const inner = '<span class="tl-k">주말 복습 · ' + st + '</span><span class="tl-t">이번 주 문장 섞어서 말하기 → 조건 바꿔 말하기</span>' +
+        '<span class="tl-e">' + (nSent ? "지금까지 다듬은 문장 " + nSent + "개" : "첨삭까지 끝낸 질문의 문장으로 해요") + "</span>";
+      h += '<li class="' + (done ? "done" : cur ? "cur" : open ? "" : "off") + '"><span class="tl-dot">' + (done ? IC.check : IC.star) + "</span>" +
+        (open || done ? '<button class="tl-main" data-open-review>' + inner + "</button>" : '<div class="tl-main">' + inner + "</div>") + "</li>";
+    }
+  });
+  h += "</ol>";
+  const anyStarted = w.qs.some(q => qStarted(w, q)) || w.gpt.some(g => g.done || g.copied);
+  if (!anyStarted) h += '<div class="sub-row"><button class="sub-btn" data-retopic>주제 다시 고르기</button></div>';
+  return h;
+}
+$("weekPage").addEventListener("click", e => {
+  const t = e.target;
+  let b;
+  if ((b = t.closest("[data-pick]"))) { WK.pick = b.dataset.pick; buzz(); renderWeek(); return; }
+  if ((b = t.closest("[data-count]"))) { WK.count = +b.dataset.count; buzz(); renderWeek(); return; }
+  if ((b = t.closest("[data-start]"))) {
+    if (!WK.pick) return;
+    startWeek(WK.pick, WK.count); buzz(); renderWeek(); $("vWeek").scrollTop = 0;
+    toast("이번 주 주제를 정했어요");
+    return;
+  }
+  const w = curWeek();
+  if (!w) return;
+  if ((b = t.closest("[data-swap]"))) { if (swapQuestion(w, b.dataset.swap)) { buzz(); toast("다른 질문으로 바꿨어요"); renderWeek(); } return; }
+  if ((b = t.closest("[data-gmove]"))) { const [id, d] = b.dataset.gmove.split(":"); moveGpt(w, id, +d); renderWeek(); return; }
+  if ((b = t.closest("[data-open-q]"))) { openQuestion(b.dataset.openQ); return; }
+  if ((b = t.closest("[data-open-g]"))) { openGpt(b.dataset.openG); return; }
+  if ((b = t.closest("[data-open-review]"))) { openReview(); return; }
+  if ((b = t.closest("[data-retopic]"))) {
+    WK.pick = w.topic; WK.count = w.count;
+    delete store.weeks[weekKey()]; save(); renderWeek();
+  }
+});
+
+/* =====================================================================
+   질문 진행 화면 (쓰기 → 첨삭 → 듣기 → 암송 → 말하기 → 완료)
+   F.view = 보고 있는 단계(지난 단계도 다시 볼 수 있음), 진행은 항목의 step(가장 멀리 간 단계)
+   ===================================================================== */
+const F = { open: false, kind: null, wk: null, qid: null, gid: null, view: 0, rd: null, rcShown: false, rcAuto: false, rcQ: null, tm: null, tmTimer: 0 };
+const FL = { el: $("flow"), title: $("flowTitle"), steps: $("flowSteps"), body: $("flowBody"), foot: $("flowFoot") };
+function fWeek() { return store.weeks[F.wk] || null; }
+function showFlow() {
+  if (!F.open) { F.open = true; history.pushState({ flow: 1 }, ""); }
+  FL.el.hidden = false;
+  $("app").inert = true;
+}
+function hideFlow() {
+  Player.stop();
+  F.rd = null;
+  clearInterval(F.tmTimer);
+  F.tm = null;
+  F.rcShown = false;
+  if (saveTimer) { clearTimeout(saveTimer); save(); }
+  F.open = false;
+  FL.el.hidden = true;
+  $("app").inert = false;
+  if (tab === "week") renderWeek();
+  if (tab === "log") renderLog();
+}
+function closeFlow() { if (F.open && history.state && history.state.flow) history.back(); else hideFlow(); }
+$("flowX").addEventListener("click", closeFlow);
+addEventListener("popstate", () => { if (ST.open) stHide(); else if (F.open) hideFlow(); else if (DV.open) dvHide(); });
+addEventListener("keydown", e => { if (e.key !== "Escape") return; if (ST.open) closeSettings(); else if (F.open) closeFlow(); else if (DV.open) closeDrive(); });
+
+function openQuestion(qid) {
+  const w = curWeek();
+  if (!w || !Q_BY_ID[qid]) return;
+  Object.assign(F, { kind: "q", wk: weekKey(), qid, gid: null });
+  enterQuestion(w, qid);
+  showFlow();
+  renderFlow();
+  FL.body.scrollTop = 0;
+}
+function advance(it, v) {
+  const nx = v + 1;
+  if (nx > stepIdx(it)) it.step = STEPS[nx];
+  if (it.step === "done" && !it.doneOn) it.doneOn = dateKey();
+  F.view = nx;
+  save();
+  buzz();
+  renderFlow();
+  FL.body.scrollTop = 0;
+}
+function renderFlow() {
+  Player.stop();                                                             // 화면을 다시 그리면 소리도 멈춤(문장 요소가 새로 만들어짐)
+  F.rd = null;
+  clearInterval(F.tmTimer);                                                  // 타이머는 setupTimer가 다시 켬
+  if (F.tm && F.tm.ctx !== flowCtx()) F.tm = null;                           // 다른 화면으로 가면 타이머 끝
+  const rk = rcCtx();
+  if (rk !== F.rcQ) F.rcShown = false;                                       // 암송 카드: 다른 화면에서 오면 한글부터
+  F.rcQ = rk;
+  if (F.kind === "gpt") return renderGpt();
+  if (F.kind === "review") return renderReview();
+  const w = fWeek();
+  if (!w) { hideFlow(); return; }
+  const q = Q_BY_ID[F.qid], it = itemOf(w, F.qid), n = w.qs.indexOf(F.qid) + 1;
+  const prog = stepIdx(it);
+  if (F.warm) {                                                              // 워밍업(3-1): 단계 막대 없이
+    FL.title.textContent = "질문 " + n + " / " + w.qs.length + " · 시작 전 워밍업";
+    FL.steps.hidden = true;
+    FL.steps.innerHTML = "";
+    [FL.body.innerHTML, FL.foot.innerHTML] = warmView(w, it);
+    setupTimer();
+    return;
+  }
+  FL.title.textContent = "질문 " + n + " / " + w.qs.length + " · " + LEVEL_NAME[q.level];
+  FL.steps.hidden = false;
+  FL.steps.innerHTML = STEP_NAME.map((nm, i) =>
+    '<button class="st' + (i <= prog ? " reached" : "") + (i === F.view ? " cur" : "") + '" data-view="' + i + '" ' + (i > prog ? "disabled" : "") + ">" + nm + "</button>").join("");
+  const qHead = '<p class="q-en">' + esc(q.en) + '</p><p class="q-ko">' + esc(q.ko) + "</p>";
+  let body = "", foot = "";
+  const v = F.view;
+  if (v === 0) {                                                             // 쓰기
+    const wc = wordCount(it.text);
+    body = qHead + '<textarea class="wr" id="fText" placeholder="영어로 써 보세요. 틀려도 괜찮아요 — 첨삭에서 고쳐요." spellcheck="false">' + esc(it.text || "") + "</textarea>" +
+      '<div class="wc" id="fWc">' + wc + " 단어</div>";
+    foot = '<button class="go" data-act="written" ' + (wc ? "" : "disabled") + ">다 썼어요 · 첨삭 받기" + IC.arrow + "</button>" +
+      (qStarted(w, F.qid) ? "" : '<div class="sub-row"><button class="sub-btn" data-act="swap">' + IC.swap + "다른 질문으로 바꾸기</button></div>");
+  } else if (v === 1) {                                                      // 첨삭
+    const has = (it.pairs || []).some(p => p.en);
+    if (!has) {
+      const copied = !!it.copied;
+      body = qHead + '<ol class="how">' +
+        '<li class="' + (copied ? "ok" : "on") + '"><b>첨삭 프롬프트 복사</b> — 내 글이 들어 있어요</li>' +
+        '<li class="' + (copied ? "on" : "") + '">ChatGPT에 붙여넣고 보내기</li>' +
+        '<li>답 맨 아래 코드블록의 <b>복사</b> 버튼 누르기</li>' +
+        '<li>돌아와서 <b>클립보드에서 붙여넣기</b></li></ol>' +
+        (it.raw ? '<div class="warn"><b>형식을 읽지 못했어요.</b> 답의 맨 아래 코드블록([최종본]부터 끝까지)을 복사했는지 확인해 주세요. 붙여넣은 글은 아래 칸에 남아 있어요.</div>' : "") +
+        '<details class="more"' + (it.raw ? " open" : "") + '><summary>클립보드 버튼이 안 되면 — 여기에 길게 눌러 붙여넣기</summary>' +
+        '<textarea class="man" id="fMan" placeholder="여기에 붙여넣으면 바로 읽어요">' + esc(it.raw || "") + "</textarea></details>" +
+        '<details class="more"><summary>프롬프트 미리 보기</summary><div class="pre">' + esc(fixPrompt(q, it.text || "")) + "</div></details>";
+      foot = copied
+        ? '<button class="go" data-act="paste">' + IC.paste + "클립보드에서 붙여넣기</button>" +
+          '<div class="sub-row"><button class="sub-btn" data-act="copy">' + IC.copy + "프롬프트 다시 복사</button></div>"
+        : '<button class="go" data-act="copy">' + IC.copy + "첨삭 프롬프트 복사</button>";
+    } else {
+      body = qHead + checkHtml(it);
+      foot = '<button class="go" data-act="fixed">이대로 저장 · 듣기로' + IC.arrow + "</button>" +
+        '<div class="sub-row"><button class="sub-btn" data-act="repaste">' + IC.paste + "다시 붙여넣기</button>" +
+        '<button class="sub-btn" data-act="copy">' + IC.copy + "프롬프트 다시 복사</button></div>";
+    }
+  } else if (v === 2) {                                                      // 듣기: 문장마다 노래방식(단어 탭 = 그 자리부터)
+    body = qHead + listenHtml(it);
+    foot = '<button class="go" data-act="next">다 들었어요 · 암송으로' + IC.arrow + "</button>";
+  } else if (v === 3) {                                                      // 암송: 한글 보고 말하기 → 영어 보기(소리) → 막힘 없이 / 한 번 더(맨 뒤로)
+    [body, foot] = reciteView(it, qHead);
+  } else if (v === 4) {                                                      // 말하기: ① 한국어 흐름 + 시간 막대
+    [body, foot] = speakView(it, qHead);
+  } else {                                                                   // 완료
+    const nx = nextEntry(w);
+    body = '<div class="donebox"><div class="em">🎉</div><h2>질문 ' + n + " 완료</h2><p>" + esc(q.ko) + "</p></div>" +
+      '<div class="box"><div class="box-t">최종본</div>' + (it.pairs || []).filter(p => p.en).map(p =>
+        '<p style="margin:6px 0 0;font-size:15.5px;line-height:1.55">' + esc(p.en) + '<br><span style="color:var(--muted);font-size:14px">' + esc(p.ko) + "</span></p>").join("") + "</div>";
+    foot = nx
+      ? '<button class="go" data-act="go-next">' + nextLabel(nx) + IC.arrow + "</button>"
+      : '<button class="go" data-act="close">이번 주 화면으로</button>';
+  }
+  FL.body.innerHTML = body;
+  FL.foot.innerHTML = foot;
+  FL.body.querySelectorAll(".pk").forEach(autoGrow);
+  if (v === 2) setupListen();
+  if (v === 3) setupRecite();
+  if (v === 4) setupTimer();
+}
+
+/* ---------- 암송 카드 공통 (암송 단계 · 주말 복습 '섞어서 말하기') ----------
+   한 번에 한 문장: 한글만 크게 → [영어 보기] → 영어(노래방식) + 그 문장 소리 자동 재생 → [한 번 더](맨 뒤로) / [막힘 없이 했어요]
+   진행 { q: [남은 번호 — 맨 앞이 지금 카드], ok: [끝낸 번호], again: { 번호: 한 번 더 누른 횟수 } } */
+function rcProgHtml(done, n, left) {
+  const pct = n ? Math.round(done / n * 100) : 0;
+  return '<div class="rc-prog"><span>막힘 없이 <b>' + done + "</b> / " + n + "</span><span>" + (left ? "남은 문장 " + left : "다 했어요") + "</span></div>" +
+    '<div class="rc-bar" role="progressbar" aria-valuemin="0" aria-valuemax="' + n + '" aria-valuenow="' + done + '"><i style="width:' + pct + '%"></i></div>';
+}
+function rcCardHtml(label, again, ko, en) {
+  let card = '<div class="rc-card"><div class="rc-n">' + label + (again ? '<span class="rc-again">한 번 더 · ' + again + "</span>" : "") + "</div>" +
+    '<div class="rc-ko">' + esc(ko || "(한글 없음 — 첨삭 단계에서 써 넣을 수 있어요)") + "</div>";
+  if (F.rcShown) {
+    card += '<div class="rc-en"><div class="rc-en-t" lang="en">' + scriptHtml(en) + '</div><button class="spk" data-rc-say aria-label="다시 듣기">' + IC.speaker + "</button></div>" +
+      '<p class="rc-hint">내가 말한 것과 같았나요? 막힘 없이 말했으면 오른쪽, 아니면 한 번 더.</p>';
+  } else {
+    card += '<p class="rc-hint">먼저 소리 내서 영어로 말해 본 뒤 [영어 보기]를 눌러요.</p>';
+  }
+  return card + "</div>";
+}
+function rcFootHtml() {
+  return F.rcShown
+    ? '<div class="two"><button class="outline-btn" data-act="rc-again">한 번 더</button><button class="go" data-act="rc-ok">' + IC.check + "막힘 없이 했어요</button></div>"
+    : '<button class="go" data-act="rc-show">영어 보기</button>';
+}
+/* [영어 보기] · [막힘 없이] · [한 번 더] — rc는 진행 객체, 저장·다시 그리기까지 */
+function rcStep(rc, act) {
+  if (act === "rc-show") { F.rcShown = true; F.rcAuto = true; buzz(); renderFlow(); return; }
+  const i = rc.q.shift();
+  if (i == null) return;
+  if (act === "rc-ok") rc.ok.push(i);
+  else { rc.again[i] = (rc.again[i] || 0) + 1; rc.q.push(i); toast(rc.q.length > 1 ? "맨 뒤로 보냈어요 — 다른 문장 뒤에 다시 나와요" : "한 번 더 해 봐요"); }
+  F.rcShown = false;
+  save(); buzz(); renderFlow();
+}
+/* 지금 보이는 암송 카드의 영어 — 소리(영어 보기를 누른 직후에만 자동) */
+function setupRecite() {
+  const el = FL.body.querySelector(".rc-en .sc");
+  if (!el) return;
+  F.rd = createReader({ items: () => [{ el: FL.body.querySelector(".rc-en .sc"), btn: FL.body.querySelector("[data-rc-say]") }], rate: () => settings.rate });
+  if (F.rcAuto) { F.rcAuto = false; F.rd.play(0, 0, true); }
+}
+
+/* ---------- 암송 단계 (2-3): 질문 하나의 최종본 문장들 ----------
+   진행은 항목의 rc에 저장(중간에 나가도 이어서) + sig(최종본 영어의 해시 — 영어가 바뀌면 처음부터) */
+function reciteSig(it) { return String(hashStr((it.pairs || []).map(p => p.en).join("\n"))); }
+function reciteState(it) {
+  const n = (it.pairs || []).filter(p => p.en).length, sig = reciteSig(it);
+  if (!it.rc || it.rc.sig !== sig || !Array.isArray(it.rc.q) || !Array.isArray(it.rc.ok)) {
+    it.rc = { sig, q: Array.from({ length: n }, (_, i) => i), ok: [], again: {} };
+  }
+  return it.rc;
+}
+function reciteView(it, qHead) {
+  const ps = (it.pairs || []).filter(p => p.en), rc = reciteState(it), n = ps.length;
+  if (!n) return [qHead + '<div class="warn">최종본 문장이 없어요. 첨삭 단계에서 결과를 붙여넣어 주세요.</div>', ""];
+  const prog = rcProgHtml(rc.ok.length, n, rc.q.length);
+  if (!rc.q.length) {
+    const tried = Object.keys(rc.again).length;
+    return [qHead + prog + '<div class="donebox" style="margin-top:22px"><div class="em">👏</div><h2>모든 문장을 막힘 없이 말했어요</h2><p>' +
+      (tried ? "한 번 더 한 문장 " + tried + "개도 끝까지 해냈어요" : "한 번에 다 말했어요") + "</p></div>",
+      '<button class="go" data-act="next">다음 · 자유롭게 말하기' + IC.arrow + "</button>" +
+      '<div class="sub-row"><button class="sub-btn" data-act="rc-reset">처음부터 다시 해 보기</button></div>'];
+  }
+  const i = rc.q[0];
+  return [qHead + prog + rcCardHtml((i + 1) + "번 문장", rc.again[i] || 0, ps[i].ko, ps[i].en), rcFootHtml()];
+}
+function reciteAct(it, act) {
+  const rc = reciteState(it);
+  if (act === "rc-reset") { it.rc = null; reciteState(it); F.rcShown = false; save(); buzz(); renderFlow(); FL.body.scrollTop = 0; return; }
+  rcStep(rc, act);
+}
+
+/* ---------- 시간 상자 공통 (말하기 단계 · 워밍업 · 주말 복습 조건 말하기) ----------
+   F.tm = { ctx(어느 화면의 타이머인지), start, end(멈춘 시각, 0 = 흐르는 중), goal(초) }. 화면(ctx)이 바뀌면 renderFlow가 지움.
+   [말하기 시작] → 큰 시계 + 막대가 goal까지 차오름(넘기면 꽉 찬 줄무늬, 시계는 계속) → [다 말했어요] → 걸린 시간. 실제 시각으로 셈 */
+const fmtSec = s => Math.floor(s / 60) + ":" + pad2(Math.floor(s % 60));
+const goalLabel = s => (s % 60 ? (s >= 60 ? Math.floor(s / 60) + "분 " : "") + (s % 60) + "초" : s / 60 + "분");
+function timerOf(ctx) { return F.tm && F.tm.ctx === ctx ? F.tm : null; }
+function timerState(ctx) { const tm = timerOf(ctx); return !tm ? "idle" : tm.end ? "stopped" : "running"; }
+function timerSec(tm) { return tm ? ((tm.end || Date.now()) - tm.start) / 1000 : 0; }
+function timerMsg(state, sec, goal, idle) {
+  if (state === "running") return sec < goal ? "말하는 중… 목표까지 " + fmtSec(goal - sec) : "목표 시간이 지났어요 · 더 말해도 돼요";
+  if (state === "stopped") return fmtSec(sec) + " 동안 말했어요" + (sec >= goal ? " — 목표 시간을 채웠어요 👏" : "");
+  return idle;
+}
+function timerHtml(ctx, goal, idle) {
+  const tm = timerOf(ctx), state = timerState(ctx), sec = timerSec(tm);
+  return '<div class="tm' + (state === "running" ? " on" : "") + '"><div class="tm-row"><span class="tm-t" id="tmT">' + fmtSec(sec) + '</span><span class="tm-goal">목표 약 ' + goalLabel(goal) + "</span></div>" +
+    '<div class="tm-bar' + (sec >= goal ? " over" : "") + '"><i id="tmBar" style="width:' + Math.min(100, sec / goal * 100) + '%"></i></div>' +
+    '<p class="tm-msg" id="tmMsg">' + timerMsg(state, sec, goal, idle) + "</p></div>";
+}
+function timerStart(ctx, goal) { F.tm = { ctx, start: Date.now(), end: 0, goal }; buzz(); renderFlow(); }
+function timerStop() {                                                        // → 걸린 초(반올림), 흐르는 중이 아니면 null
+  if (!F.tm || F.tm.end) return null;
+  F.tm.end = Date.now();
+  buzz();
+  return Math.round((F.tm.end - F.tm.start) / 1000);
+}
+function setupTimer() {
+  clearInterval(F.tmTimer);
+  const tm = F.tm;
+  if (!tm || tm.end || !$("tmT")) return;
+  const tick = () => {
+    const t = $("tmT");
+    if (!t || F.tm !== tm || tm.end) { clearInterval(F.tmTimer); return; }
+    const sec = (Date.now() - tm.start) / 1000;
+    t.textContent = fmtSec(sec);
+    $("tmBar").style.width = Math.min(100, sec / tm.goal * 100) + "%";
+    $("tmBar").parentNode.classList.toggle("over", sec >= tm.goal);
+    $("tmMsg").textContent = timerMsg("running", sec, tm.goal, "");
+  };
+  tick();
+  F.tmTimer = setInterval(tick, 250);
+}
+
+/* ---------- 말하기 단계 (2-4): ① 한국어 흐름만 보고 내 말로 ----------
+   목표 시간 = 최종본 영어 단어 수 × 0.6초(자유롭게 다시 말하는 속도 — 분당 약 100단어), 10초 단위로 반올림, 30초~2분 30초 */
+function speakGoal(it) {
+  const words = (it.pairs || []).reduce((n, p) => n + wordCount(p.en), 0);
+  return Math.max(30, Math.min(150, Math.round(words * 0.6 / 10) * 10));
+}
+function speakView(it, qHead) {
+  const ctx = "speak:" + F.qid, state = timerState(ctx);
+  const body = qHead + '<div class="box-t" style="margin-top:20px">이 흐름만 보고 내 말로 다시 말해 보세요</div>' +
+    '<div class="big-flow">' + (it.flow ? esc(it.flow) : "흐름이 없어요 — 첨삭 결과에 [흐름]이 있는지 확인해 주세요") + "</div>" +
+    timerHtml(ctx, speakGoal(it), it.spoke ? "지난번 " + fmtSec(it.spoke.sec) + " 말했어요 · 다시 해도 돼요" : "[말하기 시작]을 누르고 말해요. 시간이 막대로 보여요") +
+    '<p class="note">외운 문장 그대로가 아니어도 괜찮아요. 막히면 다른 말로 돌려 말해요.</p>';
+  let foot;
+  if (state === "running") foot = '<button class="go" data-act="sp-stop">' + IC.check + "다 말했어요</button>";
+  else if (state === "stopped") foot = '<button class="go" data-act="next">질문 완료' + IC.arrow + "</button>" +
+    '<div class="sub-row"><button class="sub-btn" data-act="sp-start">다시 말해 보기</button></div>';
+  else foot = '<button class="go" data-act="sp-start">' + IC.play + "말하기 시작</button>" +
+    '<div class="sub-row"><button class="sub-btn" data-act="next">시간 재지 않고 완료</button></div>';
+  return [body, foot];
+}
+function speakAct(it, act) {
+  if (act === "sp-start") { timerStart("speak:" + F.qid, speakGoal(it)); return; }
+  if (act === "sp-stop") { const sec = timerStop(); if (sec != null) { it.spoke = { sec, on: dateKey() }; save(); renderFlow(); } }
+}
+
+/* ---------- 워밍업 (3-1): 다음 질문을 시작하기 직전, 앞 질문을 ② 영어 키워드만 보고 1분 다시 말하기 ----------
+   언제: 질문 n(2번째부터)을 열었는데 아직 아무것도 안 썼고(쓰기 단계·글 없음), 바로 앞 질문(질문 n−1)이 끝났고 키워드가 있을 때 — 한 번만.
+   화면: 앞 질문 + 키워드(크게) + 시간 상자(목표 1분) → [말하기 시작] → [다 말했어요] → [질문 n 쓰기로]. 작은 [워밍업 건너뛰기].
+   끝내거나 건너뛰면 질문 n의 항목에 warm = { from: 앞 질문 id, sec?(말한 시간), skip?, on: 날짜 } — 다시 안 나옴 */
+const WARM_GOAL = 60;
+/* 숫자 뒤 을/를: 끝자리를 읽은 소리에 받침이 있으면(0 영·1 일·3 삼·6 육·7 칠·8 팔) 을, 없으면 를 */
+const eulReul = n => ("013678".includes(String(n).slice(-1)) ? "을" : "를");
+function warmFrom(w, qid) {
+  const k = w.qs.indexOf(qid);
+  if (k < 1) return null;
+  const it = w.items[qid], prev = w.qs[k - 1], pit = w.items[prev];
+  if (it && (it.warm || stepIdx(it) > 0 || (it.text || "").trim())) return null;
+  if (!pit || pit.step !== "done" || !(pit.keywords || []).length) return null;
+  return prev;
+}
+function warmView(w, it) {
+  const prev = F.warmPrev, pq = Q_BY_ID[prev], pit = w.items[prev], n = w.qs.indexOf(F.qid) + 1;
+  const ctx = "warm:" + F.qid, state = timerState(ctx);
+  const body = '<div class="wu-k">워밍업 · 1분</div>' +
+    '<p class="wu-t">질문 ' + n + eulReul(n) + " 시작하기 전에, 앞 질문 이야기를 키워드만 보고 다시 말해 봐요</p>" +
+    '<div class="box"><div class="box-t">앞 질문 · 질문 ' + (n - 1) + '</div><div style="font-size:15.5px;font-weight:650;line-height:1.5">' + esc(pq.ko) + "</div></div>" +
+    '<div class="box-t" style="margin-top:20px">영어 키워드</div><div class="kw kw-big">' + (pit.keywords || []).map(x => "<span lang=\"en\">" + esc(x) + "</span>").join("") + "</div>" +
+    timerHtml(ctx, WARM_GOAL, "[말하기 시작]을 누르고 1분 동안 말해요. 짧게 해도 괜찮아요") +
+    '<p class="note">문장을 그대로 외워 말하지 않아도 돼요. 키워드를 이어서 내 말로.</p>';
+  let foot;
+  if (state === "running") foot = '<button class="go" data-act="wu-stop">' + IC.check + "다 말했어요</button>";
+  else if (state === "stopped") foot = '<button class="go" data-act="wu-done">질문 ' + n + " 쓰기로" + IC.arrow + "</button>" +
+    '<div class="sub-row"><button class="sub-btn" data-act="wu-start">다시 말해 보기</button></div>';
+  else foot = '<button class="go" data-act="wu-start">' + IC.play + "말하기 시작</button>" +
+    '<div class="sub-row"><button class="sub-btn" data-act="wu-skip">워밍업 건너뛰기</button></div>';
+  return [body, foot];
+}
+function warmAct(it, act) {
+  if (act === "wu-start") { timerStart("warm:" + F.qid, WARM_GOAL); return; }
+  if (act === "wu-stop") { const sec = timerStop(); if (sec != null) { F.warmSec = sec; renderFlow(); } return; }
+  if (act === "wu-done" || act === "wu-skip") {
+    it.warm = { from: F.warmPrev, on: dateKey() };
+    if (act === "wu-skip") it.warm.skip = true; else if (F.warmSec != null) it.warm.sec = F.warmSec;
+    F.warmPrev = null; F.warmSec = null;
+    F.warm = false; F.view = 0;
+    save(); buzz(); renderFlow(); FL.body.scrollTop = 0;
+  }
+}
+
+/* ---------- 듣기 단계 (2단계): 최종본 문장마다 노래방식 ----------
+   [전체 듣기]는 1번부터 끝까지 이어서(문장 사이 0.45초), 문장 옆 스피커는 그 문장만(다시 누르면 멈춤),
+   단어를 누르면 그 단어부터(이어 듣는 중이면 거기서부터 계속, 아니면 그 문장만). 속도는 설정과 같은 값.
+   음성은 문장마다 따로 캐시 → 다시 들을 땐 크레딧 없음, 한글만 고치면 음성은 그대로 */
+function listenHtml(it) {
+  const ps = (it.pairs || []).filter(p => p.en);
+  return '<div class="ls-bar"><button class="ls-play" data-ls="all">' + IC.play + "전체 듣기</button>" +
+    '<div class="seg rate-seg" role="group" aria-label="속도">' + RATES.map(r => '<button data-rate="' + r + '" aria-pressed="' + (settings.rate === r) + '">' + rateLabel(r) + "</button>").join("") + "</div></div>" +
+    '<p class="note">단어를 누르면 그 자리부터 들어요.' + (settings.apiKey ? "" : " 지금은 API 키가 없어서 폰 기본 음성으로 읽어요(설정에서 넣을 수 있어요).") + "</p>" +
+    '<ul class="pairs" id="lsList">' + ps.map((p, i) =>
+      '<li class="pair ls-row" data-i="' + i + '"><span class="pn">' + (i + 1) + '</span><div class="pb"><div class="pe" lang="en">' + scriptHtml(p.en) + '</div><div class="pko">' + esc(p.ko) + "</div></div>" +
+      '<button class="spk" data-say="' + i + '" aria-label="' + (i + 1) + '번 문장 듣기">' + IC.speaker + "</button></li>").join("") + "</ul>";
+}
+function setupListen() {
+  const rows = () => Array.from(FL.body.querySelectorAll(".ls-row"));
+  const mark = i => rows().forEach((r, k) => r.classList.toggle("cur", k === i));
+  F.rd = createReader({
+    items: () => rows().map(r => ({ el: r.querySelector(".sc"), btn: r.querySelector(".spk") })),
+    rate: () => settings.rate,
+    gap: 450,
+    onItem: i => {
+      mark(i);
+      const r = rows()[i];
+      if (r) {                                                                // 그 문장이 보이게
+        const b = FL.body.getBoundingClientRect(), rr = r.getBoundingClientRect();
+        if (rr.top < b.top + 8 || rr.bottom > b.bottom - 8) FL.body.scrollTo({ top: FL.body.scrollTop + rr.top - b.top - 12, behavior: "smooth" });
+      }
+    },
+    onEnd: () => mark(-1),
+    onChange: paintListen
+  });
+  paintListen();
+}
+function paintListen() {
+  const b = FL.body.querySelector('[data-ls="all"]');
+  if (!b || !F.rd) return;
+  const s = F.rd.state();
+  const playingAll = s.active && !s.single;
+  b.innerHTML = playingAll && !s.paused ? IC.pause + "일시정지" : playingAll ? IC.play + "이어 듣기" : IC.play + "전체 듣기";
+}
+Player.onChange(() => { if (F.open && F.kind === "q" && F.view === 2) paintListen(); });
+/* 암송: 영어 옆 스피커 = 다시 듣기(듣는 중이면 멈춤), 단어 = 그 단어부터 */
+FL.body.addEventListener("click", e => {
+  if (!F.rd || !FL.body.querySelector(".rc-en")) return;                 // 암송 카드(암송 단계·주말 복습)
+  if (e.target.closest("[data-rc-say]")) { const s = F.rd.state(); if (s.active) F.rd.stop(); else F.rd.play(0, 0, true); return; }
+  const w = e.target.closest(".rc-en .sc .w");
+  if (w) F.rd.seek(0, +w.dataset.w);
+});   // 일시정지·이어 듣기·끊김 때도 버튼 모양을 맞춤
+function setRate(r) {
+  if (!RATES.includes(r)) return;
+  settings.rate = r;
+  saveSettings();
+  Player.setRate(r);
+  document.querySelectorAll("[data-rate]").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.rate === r)));
+  buzz();
+}
+FL.body.addEventListener("click", e => {
+  if (F.kind !== "q" || F.view !== 2 || !F.rd) return;
+  const t = e.target;
+  let b;
+  if ((b = t.closest("[data-rate]"))) { setRate(+b.dataset.rate); return; }
+  if ((b = t.closest('[data-ls="all"]'))) {
+    const s = F.rd.state();
+    if (s.active && !s.single) F.rd.toggle(); else F.rd.play(0, 0, false);
+    buzz(); return;
+  }
+  if ((b = t.closest("[data-say]"))) {
+    const i = +b.dataset.say, s = F.rd.state();
+    if (s.active && s.index === i && s.single) F.rd.stop(); else F.rd.play(i, 0, true);
+    return;
+  }
+  const w = t.closest(".sc .w"), row = t.closest(".ls-row");
+  if (w && row) F.rd.seek(+row.dataset.i, +w.dataset.w);
+});
+/* 첨삭 결과 확인: 문장 짝(한글은 바로 고칠 수 있음) + 개수 경고 + 상황 묘사 */
+function checkHtml(it) {
+  const ps = it.pairs || [];
+  const nEn = ps.filter(p => p.en).length, nKo = ps.filter(p => p.ko).length;
+  const noKo = ps.filter(p => p.en && !p.ko).length, noEn = ps.filter(p => !p.en).length;
+  let h = "";
+  if (nEn !== nKo || noKo || noEn) {
+    h += '<div class="warn"><b>영어 ' + nEn + "문장 · 한글 " + nKo + "문장</b> — 짝이 안 맞아요." +
+      (noKo ? " 한글이 빈 칸에 직접 써 넣어 주세요." : "") + (noEn ? " 영어 없는 한글 " + noEn + "개는 저장할 때 빠져요." : "") + "</div>";
+  } else {
+    h += '<p class="note" style="margin-top:16px">영어 ' + nEn + "문장 · 한글 " + nKo + "문장 — 짝이 맞아요. 한글은 눌러서 바로 고칠 수 있어요.</p>";
+  }
+  h += '<ul class="pairs">';
+  let k = 0;
+  ps.forEach((p, i) => {
+    h += '<li class="pair' + (p.en && p.ko ? "" : " bad") + '"><span class="pn">' + (p.en ? ++k : "·") + '</span><div class="pb">' +
+      (p.en ? '<div class="pe">' + esc(p.en) + "</div>" : '<div class="pe none">영어 없음</div>') +
+      '<textarea class="pk' + (p.ko ? "" : " empty") + '" data-ko="' + i + '" rows="1" placeholder="한글을 써 주세요" aria-label="' + (k || "") + '번 한글">' + esc(p.ko) + "</textarea></div></li>";
+  });
+  h += "</ul>";
+  const miss = [!it.flow && "흐름", !(it.keywords || []).length && "키워드", !(it.conds || []).length && "조건"].filter(Boolean);
+  h += '<div class="box"><div class="box-t">상황 묘사 · 흐름</div><div class="flow">' + (it.flow ? esc(it.flow) : "—") + "</div></div>" +
+    '<div class="box"><div class="box-t">키워드</div><div class="kw">' + ((it.keywords || []).map(x => "<span>" + esc(x) + "</span>").join("") || "—") + "</div></div>" +
+    '<div class="box"><div class="box-t">조건 바꿔 말하기</div>' + ((it.conds || []).length ? '<ol class="conds">' + it.conds.map(c => "<li>" + esc(c) + "</li>").join("") + "</ol>" : "—") + "</div>";
+  if (miss.length) h += '<div class="warn">' + miss.join(" · ") + "이(가) 없어요. 답의 코드블록을 끝까지 복사했는지 확인해 주세요. (없어도 저장은 돼요)</div>";
+  return h;
+}
+function autoGrow(ta) { ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; }
+
+FL.body.addEventListener("input", e => {
+  const w = fWeek();
+  if (!w || F.kind !== "q") return;
+  const it = itemOf(w, F.qid), t = e.target;
+  if (t.id === "fText") {
+    it.text = t.value; it.updated = Date.now(); saveSoon();
+    const wc = wordCount(t.value);
+    $("fWc").textContent = wc + " 단어";
+    const go = FL.foot.querySelector('[data-act="written"]');
+    if (go) go.disabled = !wc;
+  } else if (t.matches(".pk")) {
+    const p = it.pairs[+t.dataset.ko];
+    if (p) { p.ko = t.value.replace(/\s*\n\s*/g, " "); t.classList.toggle("empty", !p.ko.trim()); saveSoon(); }
+    autoGrow(t);
+  } else if (t.id === "fMan") {
+    clearTimeout(F.manT);
+    F.manT = setTimeout(() => {
+      if (!t.value.trim()) return;
+      if (applyPaste(it, t.value)) { toast("읽었어요 — 짝을 확인해 주세요"); renderFlow(); FL.body.scrollTop = 0; }
+    }, 500);
+  }
+});
+FL.steps.addEventListener("click", e => {
+  const b = e.target.closest("[data-view]");
+  if (!b || b.disabled) return;
+  F.view = +b.dataset.view; renderFlow(); FL.body.scrollTop = 0;
+});
+FL.foot.addEventListener("click", e => onFlowAct(e));
+FL.body.addEventListener("click", e => onFlowAct(e));
+async function onFlowAct(e) {
+  const b = e.target.closest("[data-act]");
+  if (!b || b.disabled) return;
+  if (F.kind === "gpt") return onGptAct(b.dataset.act);
+  if (F.kind === "review") return onReviewAct(b.dataset.act);
+  const w = fWeek();
+  if (!w) return;
+  const q = Q_BY_ID[F.qid], it = itemOf(w, F.qid), act = b.dataset.act;
+  if (act === "written") { if (saveTimer) { clearTimeout(saveTimer); save(); } advance(it, 0); return; }
+  if (act === "swap") {                                                      // 같은 자리에 새 질문이 들어감
+    const slot = w.qs.indexOf(F.qid);
+    if (swapQuestion(w, F.qid)) { F.qid = w.qs[slot]; buzz(); toast("다른 질문으로 바꿨어요"); renderFlow(); }
+    return;
+  }
+  if (act === "copy") {
+    const ok = await copyText(fixPrompt(q, it.text || ""));
+    if (!ok) { toast("복사하지 못했어요 — 프롬프트 미리 보기를 길게 눌러 복사해 주세요"); return; }
+    it.copied = true; save(); buzz();
+    toast("복사했어요 — ChatGPT에 붙여넣어 보내세요");
+    renderFlow(); return;
+  }
+  if (act === "paste" || act === "repaste") {
+    const text = await readClipboard();
+    if (text == null) {
+      toast("길게 눌러 붙여넣어 주세요");
+      if (act === "repaste") { it.pairs = null; save(); renderFlow(); }
+      const d = FL.body.querySelector("details.more"); if (d) d.open = true;
+      const m = $("fMan"); if (m) m.focus();
+      return;
+    }
+    if (!text.trim()) { toast("클립보드가 비어 있어요"); return; }
+    const ok = applyPaste(it, text);
+    buzz();
+    toast(ok ? "읽었어요 — 짝을 확인해 주세요" : "형식을 읽지 못했어요");
+    if (!ok) it.pairs = null;
+    renderFlow(); FL.body.scrollTop = 0; return;
+  }
+  if (act === "fixed") {
+    if (saveTimer) { clearTimeout(saveTimer); }
+    it.pairs = (it.pairs || []).filter(p => p.en);
+    advance(it, 1); return;
+  }
+  if (act.startsWith("wu-")) { warmAct(it, act); return; }
+  if (act.startsWith("rc-")) { reciteAct(it, act); return; }
+  if (act.startsWith("sp-")) { speakAct(it, act); return; }
+  if (act === "next") { advance(it, F.view); return; }
+  if (act === "go-next") { goNext(w); return; }
+  if (act === "close") closeFlow();
+}
+/* 진행 화면이 열린 채로 다른 항목으로(기록을 더 쌓지 않음) */
+function openQuestionIn(qid) {
+  const w = fWeek(); if (!w) return;
+  Object.assign(F, { kind: "q", qid, gid: null });
+  enterQuestion(w, qid);
+  renderFlow(); FL.body.scrollTop = 0;
+}
+/* 질문을 열 때: 하던 단계부터 + 워밍업이 필요하면(warmFrom) 워밍업 화면부터 */
+function enterQuestion(w, qid) {
+  const it = itemOf(w, qid);
+  F.view = Math.min(stepIdx(it), STEPS.length - 1);
+  F.warmPrev = warmFrom(w, qid);
+  F.warm = !!F.warmPrev;
+  F.warmSec = null;
+}
+/* 진행 화면이 열린 채로 다음 항목으로(완료 화면·GPT 화면의 [다음: …]) */
+function goNext(w) {
+  const nx = nextEntry(w);
+  if (!nx) { closeFlow(); return; }
+  if (nx.kind === "q") openQuestionIn(nx.qid);
+  else if (nx.kind === "gpt") openGptIn(nx.g.id);
+  else { Object.assign(F, { kind: "review", qid: null, gid: null }); renderFlow(); FL.body.scrollTop = 0; }
+}
+const nextLabel = nx => nx.kind === "q" ? "다음: 질문 " + nx.n : nx.kind === "gpt" ? "다음: GPT 대화 " + nx.n : "다음: 주말 복습";
+/* 지금 화면의 타이머 이름(다르면 타이머를 지움) · 암송 카드 이름(다르면 영어를 다시 숨김) */
+function flowCtx() {
+  if (F.kind === "q") return F.warm ? "warm:" + F.qid : F.view === 4 ? "speak:" + F.qid : "";
+  if (F.kind === "review") { const w = fWeek(), rv = w && w.review; return rv && rv.phase === "cond" ? "rv:" + rv.cq[rv.ci] : ""; }
+  return "";
+}
+function rcCtx() {
+  if (F.kind === "q") return !F.warm && F.view === 3 ? "q:" + F.qid : "";
+  if (F.kind === "review") { const w = fWeek(), rv = w && w.review; return !rv || rv.phase === "rc" ? "rv" : ""; }   // 복습을 처음 열 땐 아직 진행이 없음(= 섞어서 말하기)
+  return "";
+}
+function openGptIn(gid) { Object.assign(F, { kind: "gpt", gid, qid: null }); renderFlow(); FL.body.scrollTop = 0; }
+
+/* =====================================================================
+   GPT 대화 화면
+   ===================================================================== */
+function openGpt(gid) {
+  const w = curWeek();
+  if (!w) return;
+  Object.assign(F, { kind: "gpt", wk: weekKey(), gid, qid: null });
+  showFlow();
+  renderGpt();
+  FL.body.scrollTop = 0;
+}
+function renderGpt() {
+  const w = fWeek();
+  const g = w && w.gpt.find(x => x.id === F.gid);
+  if (!g) { hideFlow(); return; }
+  const tl = timeline(w), e = tl.find(x => x.kind === "gpt" && x.g === g);
+  const before = w.qs.slice(0, g.after);
+  const ready = before.filter(qid => (w.items[qid] && w.items[qid].pairs || []).some(p => p.en)).length;
+  FL.title.textContent = "GPT 대화 " + e.n + " / " + w.gpt.length;
+  FL.steps.hidden = true;
+  FL.steps.innerHTML = "";
+  let body = '<p class="q-en">GPT와 영어로 20~30분 대화해요</p><p class="q-ko">이번 주에 다듬은 글의 표현을 꺼내 쓰게 되는 질문을 해 줘요.</p>' +
+    '<ol class="how">' +
+    '<li class="' + (g.copied ? "ok" : "on") + '"><b>대화 프롬프트 복사</b> — 지금까지 다듬은 글 ' + ready + "개가 들어 있어요</li>" +
+    '<li class="' + (g.copied && !g.done ? "on" : g.done ? "ok" : "") + '">ChatGPT 앱에 붙여넣어 보내고, <b>음성 대화</b>를 켜기</li>' +
+    '<li class="' + (g.done ? "ok" : "") + '">20~30분 대화 → 끝낼 때 <b>"끝"</b>이라고 말하면 큰 실수만 모아 알려 줘요</li>' +
+    '<li class="' + (g.done ? "ok" : "") + '">돌아와서 <b>대화 끝냈어요</b></li></ol>';
+  if (ready < before.length) body += '<div class="warn">질문 ' + g.after + "까지 중 아직 첨삭을 안 끝낸 질문이 " + (before.length - ready) + "개 있어요. 그 글은 프롬프트에 안 들어가요.</div>";
+  body += '<details class="more"><summary>프롬프트 미리 보기</summary><div class="pre">' + esc(gptPrompt(w)) + "</div></details>";
+  let foot;
+  if (g.done) {
+    body = '<div class="donebox"><div class="em">💬</div><h2>GPT 대화 ' + e.n + " 완료</h2><p>" + md(g.done) + "에 했어요</p></div>" + body;
+    const nx = nextEntry(w);
+    foot = (nx ? '<button class="go" data-act="go-next">' + nextLabel(nx) + IC.arrow + "</button>" : '<button class="go" data-act="close">이번 주 화면으로</button>') +
+      '<div class="sub-row"><button class="sub-btn" data-act="undo">아직 안 한 걸로 되돌리기</button></div>';
+  } else if (g.copied) {
+    foot = '<button class="go" data-act="talked">' + IC.check + "대화 끝냈어요</button>" +
+      '<div class="sub-row"><button class="sub-btn" data-act="copy">' + IC.copy + "프롬프트 다시 복사</button></div>";
+  } else {
+    foot = '<button class="go" data-act="copy">' + IC.copy + "대화 프롬프트 복사</button>";
+  }
+  FL.body.innerHTML = body;
+  FL.foot.innerHTML = foot;
+}
+async function onGptAct(act) {
+  const w = fWeek();
+  const g = w && w.gpt.find(x => x.id === F.gid);
+  if (!g) return;
+  if (act === "copy") {
+    const ok = await copyText(gptPrompt(w));
+    if (!ok) { toast("복사하지 못했어요 — 프롬프트 미리 보기를 길게 눌러 복사해 주세요"); return; }
+    g.copied = true; save(); buzz(); toast("복사했어요 — ChatGPT에 붙여넣어 보내세요"); renderGpt(); return;
+  }
+  if (act === "talked") { g.done = dateKey(); save(); buzz(); renderGpt(); FL.body.scrollTop = 0; return; }
+  if (act === "undo") { delete g.done; save(); renderGpt(); return; }
+  if (act === "go-next") { goNext(w); return; }
+  if (act === "close") closeFlow();
+}
+
+/* =====================================================================
+   주말 복습 (3-2) — 타임라인 맨 끝, 그 주 일요일에 열림
+   ① 섞어서 말하기: 그 주 최종본 문장(듣기 단계까지 간 질문)을 모두 섞어서 한글 보고 영어로 — 암송 카드와 같은 방식([한 번 더]는 맨 뒤로)
+   ② 조건 바꿔 말하기: 질문마다 [조건] 하나씩(질문마다 3개 중 하나를 골라 둠) + 그 이야기의 흐름(작게) + 시간 상자(목표 = 그 질문의 말하기 단계와 같은 시간)
+   진행은 주의 review에 저장(중간에 나가도 이어서): { sig, deck: [[질문 id, 문장 번호]], q, ok, again, phase: rc|cond|done,
+     cq: [조건 말할 질문 id], ci, cond: { 질문 id: 조건 번호 }, spoke: { 질문 id: 초 }, doneOn }
+   그 주 문장이 바뀌면(sig — 일요일에 질문을 더 끝낸 경우 등) 처음부터. 끝낸 복습은 그대로 둠
+   ===================================================================== */
+function weekOf(w) { return weekKey(keyDate(w.started || dateKey())); }
+const reviewDay = w => addDays(weekOf(w), 6);                                 // 그 주 일요일
+const reviewOpen = w => dateKey() >= reviewDay(w);
+function reviewDeck(w) {
+  const deck = [];
+  w.qs.forEach(qid => {
+    const it = w.items[qid];
+    if (!it || stepIdx(it) < 2) return;                                        // 첨삭을 저장한(듣기 단계까지 간) 질문만
+    (it.pairs || []).forEach((p, i) => { if (p.en) deck.push([qid, i]); });
+  });
+  return deck;
+}
+function reviewState(w) {
+  const deck = reviewDeck(w);
+  const sig = String(hashStr(deck.map(([qid, i]) => w.items[qid].pairs[i].en).join("\n")));
+  const rv = w.review;
+  if (rv && (rv.sig === sig || rv.doneOn) && Array.isArray(rv.deck)) return rv;
+  /* 섞기: 같은 질문 문장이 되도록 연달아 나오지 않게(바로 앞과 다른 질문 중에서 무작위, 없으면 아무거나) */
+  const left = deck.map((_, k) => k), q = [];
+  while (left.length) {
+    const prevQ = q.length ? deck[q[q.length - 1]][0] : null;
+    const pool = left.filter(k => deck[k][0] !== prevQ);
+    const pick = (pool.length ? pool : left)[Math.floor(Math.random() * (pool.length || left.length))];
+    q.push(pick);
+    left.splice(left.indexOf(pick), 1);
+  }
+  const cq = [...new Set(deck.map(d => d[0]))].filter(qid => (w.items[qid].conds || []).length);
+  const cond = {};
+  cq.forEach(qid => { cond[qid] = Math.floor(Math.random() * w.items[qid].conds.length); });
+  w.review = { sig, deck, q, ok: [], again: {}, phase: "rc", cq, ci: 0, cond, spoke: {}, doneOn: null };
+  save();
+  return w.review;
+}
+function openReview() {
+  const w = curWeek();
+  if (!w) return;
+  if (!reviewOpen(w)) { toast("주말 복습은 일요일(" + md(reviewDay(w)) + ")에 열려요"); return; }
+  Object.assign(F, { kind: "review", wk: weekKey(), qid: null, gid: null });
+  showFlow();
+  renderFlow();
+  FL.body.scrollTop = 0;
+}
+function renderReview() {
+  const w = fWeek();
+  if (!w) { hideFlow(); return; }
+  FL.title.textContent = "주말 복습";
+  if (!reviewDeck(w).length && !(w.review && w.review.doneOn)) {
+    FL.steps.hidden = true; FL.steps.innerHTML = "";
+    FL.body.innerHTML = '<p class="q-en">이번 주 문장을 섞어서 말해요</p><div class="warn">아직 첨삭까지 끝낸 질문이 없어요. 질문을 하나라도 듣기 단계까지 하면 복습할 수 있어요.</div>';
+    FL.foot.innerHTML = '<button class="go" data-act="close">이번 주 화면으로</button>';
+    return;
+  }
+  const rv = reviewState(w), ph = { rc: 0, cond: 1, done: 2 }[rv.phase];
+  FL.steps.hidden = false;
+  FL.steps.innerHTML = ["섞어서 말하기", "조건 바꿔 말하기"].map((nm, i) =>
+    '<button class="st' + (i <= ph ? " reached" : "") + (i === ph ? " cur" : "") + '" disabled>' + nm + "</button>").join("");
+  let body, foot;
+  if (rv.phase === "rc") {
+    const n = rv.deck.length, intro = '<p class="q-en">이번 주 문장을 섞어서 말해요</p><p class="q-ko">질문 구분 없이 섞여 나와요. 한글을 보고 영어로 말해 본 뒤 확인해요.</p>';
+    if (rv.q.length) {
+      const k = rv.q[0], [qid, i] = rv.deck[k], p = w.items[qid].pairs[i];
+      body = intro + rcProgHtml(rv.ok.length, n, rv.q.length) + rcCardHtml("질문 " + (w.qs.indexOf(qid) + 1) + " · " + (i + 1) + "번 문장", rv.again[k] || 0, p.ko, p.en);
+      foot = rcFootHtml();
+    } else {
+      const tried = Object.keys(rv.again).length;
+      body = intro + rcProgHtml(n, n, 0) + '<div class="donebox" style="margin-top:22px"><div class="em">👏</div><h2>이번 주 문장 ' + n + "개를 막힘 없이 말했어요</h2><p>" +
+        (tried ? "한 번 더 한 문장 " + tried + "개도 끝까지 해냈어요" : "한 번에 다 말했어요") + "</p></div>";
+      foot = rv.cq.length ? '<button class="go" data-act="rv-cond">다음 · 조건 바꿔 말하기' + IC.arrow + "</button>"
+        : '<button class="go" data-act="rv-finish">' + IC.check + "복습 끝내기</button>";
+    }
+  } else if (rv.phase === "cond") {
+    const qid = rv.cq[rv.ci], it = w.items[qid], q = Q_BY_ID[qid], ctx = "rv:" + qid, state = timerState(ctx), last = rv.ci === rv.cq.length - 1;
+    body = '<div class="rv-n">조건 바꿔 말하기 · ' + (rv.ci + 1) + " / " + rv.cq.length + "</div>" +
+      '<div class="box"><div class="box-t">질문 ' + (w.qs.indexOf(qid) + 1) + '</div><div style="font-size:15.5px;font-weight:650;line-height:1.5">' + esc(q.ko) + "</div></div>" +
+      '<div class="box-t" style="margin-top:20px">이 조건으로 그 이야기를 다시 말해 보세요</div>' +
+      '<div class="big-flow">' + esc(it.conds[rv.cond[qid]] || it.conds[0]) + "</div>" +
+      (it.flow ? '<p class="rv-flow">이야기 흐름 · ' + esc(it.flow) + "</p>" : "") +
+      timerHtml(ctx, speakGoal(it), rv.spoke[qid] != null ? "아까 " + fmtSec(rv.spoke[qid]) + " 말했어요 · 다시 해도 돼요" : "[말하기 시작]을 누르고 말해요. 시간이 막대로 보여요");
+    const nextBtn = (cls, label) => last ? '<button class="' + cls + '" data-act="rv-finish">' + (cls === "go" ? IC.check : "") + label.end + "</button>"
+      : '<button class="' + cls + '" data-act="rv-cnext">' + label.next + (cls === "go" ? IC.arrow : "") + "</button>";
+    if (state === "running") foot = '<button class="go" data-act="rv-stop">' + IC.check + "다 말했어요</button>";
+    else if (state === "stopped") foot = nextBtn("go", { next: "다음 질문", end: "복습 끝내기" }) +
+      '<div class="sub-row"><button class="sub-btn" data-act="rv-start">다시 말해 보기</button></div>';
+    else foot = '<button class="go" data-act="rv-start">' + IC.play + "말하기 시작</button>" +
+      '<div class="sub-row">' + nextBtn("sub-btn", { next: "시간 재지 않고 다음 질문", end: "시간 재지 않고 복습 끝내기" }) + "</div>";
+  } else {
+    const n = rv.deck.length, tried = Object.keys(rv.again).length, said = Object.keys(rv.spoke).length;
+    body = '<div class="donebox"><div class="em">🎉</div><h2>이번 주 복습 끝</h2><p>' + md(rv.doneOn) + "에 했어요</p></div>" +
+      '<div class="box"><div class="box-t">이번 복습</div><p style="margin:4px 0 0;font-size:15.5px;line-height:1.7">섞어서 말하기 · 문장 ' + n + "개" + (tried ? " (한 번 더 " + tried + "개)" : "") +
+      "<br>조건 바꿔 말하기 · 질문 " + rv.cq.length + "개" + (said ? " (시간 잰 것 " + said + "개)" : "") + "</p></div>";
+    foot = '<button class="go" data-act="close">이번 주 화면으로</button>';
+  }
+  FL.body.innerHTML = body;
+  FL.foot.innerHTML = foot;
+  setupRecite();
+  setupTimer();
+}
+function onReviewAct(act) {
+  const w = fWeek();
+  if (!w) return;
+  const rv = reviewState(w);
+  if (act.startsWith("rc-")) { rcStep(rv, act); return; }
+  if (act === "rv-cond") { rv.phase = "cond"; rv.ci = 0; save(); buzz(); renderFlow(); FL.body.scrollTop = 0; return; }
+  if (act === "rv-start") { const qid = rv.cq[rv.ci]; timerStart("rv:" + qid, speakGoal(w.items[qid])); return; }
+  if (act === "rv-stop") { const sec = timerStop(); if (sec != null) { rv.spoke[rv.cq[rv.ci]] = sec; save(); renderFlow(); } return; }
+  if (act === "rv-cnext") { rv.ci = Math.min(rv.ci + 1, rv.cq.length - 1); save(); buzz(); renderFlow(); FL.body.scrollTop = 0; return; }
+  if (act === "rv-finish") { rv.phase = "done"; rv.doneOn = dateKey(); save(); buzz(); renderFlow(); FL.body.scrollTop = 0; return; }
+  if (act === "close") closeFlow();
+}
+
+/* =====================================================================
+   기록 화면 (주마다 접어 두고, 펼치면 질문마다 최종본)
+   ===================================================================== */
+const LG = { open: new Set([weekKey()]) };
+function renderLog() {
+  const keys = Object.keys(store.weeks).sort().reverse();
+  let h = '<div class="head"><h1>기록</h1>' + GEAR_BTN + "</div>";
+  if (!keys.length) h += '<p class="empty-t">아직 기록이 없어요.<br>이번 주 탭에서 주제를 골라 시작해 보세요.</p>';
+  keys.forEach(wk => {
+    const w = store.weeks[wk], t = TOPIC_BY_ID[w.topic] || { emoji: "📝", ko: w.topic };
+    const nq = w.qs.filter(q => qDone(w, q)).length, open = LG.open.has(wk);
+    h += '<div class="lg"><button class="lg-h" data-lg="' + wk + '" aria-expanded="' + open + '"><span class="tp-emo" aria-hidden="true">' + t.emoji +
+      '</span><span class="lg-t"><b>' + esc(t.ko) + "</b><span>" + weekRange(wk) + (wk === weekKey() ? " · 이번 주" : "") + " · 질문 " + nq + "/" + w.qs.length + " 완료</span></span></button>";
+    if (open) {
+      h += '<div class="lg-b">' + w.qs.map((qid, i) => {
+        const q = Q_BY_ID[qid] || { ko: qid }, it = w.items[qid] || {};
+        const ps = (it.pairs || []).filter(p => p.en);
+        return '<div class="lg-q"><span class="st-l">질문 ' + (i + 1) + " · " + qStatus(w, qid) + "</span><h3>" + esc(q.ko) + "</h3>" +
+          (ps.length ? "<p>" + ps.map(p => esc(p.en)).join(" ") + "</p>" : it.text ? '<p style="color:var(--muted)">' + esc(it.text) + "</p>" : "") + "</div>";
+      }).join("") + "</div>";
+    }
+    h += "</div>";
+  });
+  $("logPage").innerHTML = h;
+}
+$("logPage").addEventListener("click", e => {
+  const b = e.target.closest("[data-lg]");
+  if (!b) return;
+  const k = b.dataset.lg;
+  LG.open.has(k) ? LG.open.delete(k) : LG.open.add(k);
+  renderLog();
+});
+
+/* =====================================================================
+   듣기 탭 (4단계 — 한 장 영어 드라이브 모드를 일기 전용으로 줄임)
+   시작 화면(탭 첫 화면): 범위 [이번 주 | 지난 주 | 전체] · 속도 · 들을 분량 · 미리 받아두기 · [시작] / [처음부터][이어 듣기]
+   재생 화면(#drive, 탭 바를 덮음): 질문(영어, 한글 작게) → 그 질문의 최종본 문장들 → 다음 질문 … 끝까지 이어서.
+     문장 사이 0.45초, 새 질문 앞 1.2초. 큰 버튼 [이전 문장][재생/일시정지][다음 문장] + [다음 질문].
+     잠금화면·블루투스·차: 재생/일시정지 · 다음/이전 = 다음/이전 문장(Media Session) — 짧은 소리만으로는 폰이 조작을 붙여 주지 않아서
+     재생하는 동안 조용한 소리(44.1kHz·16비트, 6초 반복)를 틀어 둠(한 장 영어와 같은 방식).
+   문장 = 첨삭을 저장한(듣기 단계까지 간) 질문의 최종본 영어. 범위 '전체'는 최신 주부터.
+   뺀 것(일기 전용으로 줄임): 따라 말할 시간, 효과음, 랜덤 순서. 화면 꺼짐 방지는 아직 안 넣음(사용자가 폰으로 보고 정함)
+   저장 ediary.drive.v1 { opts: { scope: week|pick|all, wk }, pos: { scope, wk, key, label } | null } — key = "주|질문 id|문장 번호(-1 = 질문)"
+   ===================================================================== */
+const DRIVE_KEY = "ediary.drive.v1";
+const DV = (() => {
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(DRIVE_KEY) || "null"); } catch (e) {}
+  const opts = Object.assign({ scope: "week", wk: null }, s && s.opts || {});
+  if (!["week", "pick", "all"].includes(opts.scope)) opts.scope = "week";
+  return { opts, pos: s && s.pos && typeof s.pos.key === "string" ? s.pos : null,
+    open: false, pl: null, idx: 0, done: false, interrupted: false, rd: null, els: [], ka: null, kaSelf: false, kaWant: false, kaT: 0, pre: null };
+})();
+function saveDrive() { try { localStorage.setItem(DRIVE_KEY, JSON.stringify({ opts: DV.opts, pos: DV.pos })); } catch (e) {} }
+const DV_GAP = 450, DV_GAP_Q = 1200;
+function weekTitle(wk) { const w = store.weeks[wk], t = w && TOPIC_BY_ID[w.topic]; return t ? t.emoji + " " + t.ko : "📝 " + (w ? w.topic : ""); }
+/* 범위에 들어가는 주(최신이 앞) */
+function driveWeeks(o) {
+  if (o.scope === "week") return [weekKey()];
+  if (o.scope === "pick") return o.wk && store.weeks[o.wk] ? [o.wk] : [];
+  return Object.keys(store.weeks).sort().reverse();
+}
+const scopeKey = o => o.scope + (o.scope === "pick" ? ":" + (o.wk || "") : "");
+/* 재생 목록: 질문마다 { kind: q, 질문 영어 } + { kind: s, 문장 }. 블록 = 질문 하나 */
+function buildDrive(o) {
+  const items = [], blocks = [];
+  driveWeeks(o).forEach(wk => {
+    const w = store.weeks[wk];
+    if (!w) return;
+    w.qs.forEach((qid, qi) => {
+      const it = w.items[qid], q = Q_BY_ID[qid];
+      if (!it || !q || stepIdx(it) < 2) return;
+      const ps = (it.pairs || []).filter(p => p.en);
+      if (!ps.length) return;
+      blocks.push({ start: items.length, wk, qid, n: qi + 1 });
+      const b = blocks.length - 1;
+      items.push({ kind: "q", text: q.en, ko: q.ko, wk, qid, n: qi + 1, b, key: wk + "|" + qid + "|-1" });
+      ps.forEach((p, i) => items.push({ kind: "s", text: p.en, ko: p.ko, wk, qid, n: qi + 1, b, i, total: ps.length, key: wk + "|" + qid + "|" + i }));
+    });
+  });
+  return { items, blocks };
+}
+function driveMinutes(pl, rate) {
+  const words = pl.items.reduce((n, it) => n + wordCount(it.text), 0);
+  const sec = words / 2.5 / rate + pl.items.length * DV_GAP / 1000 + pl.blocks.length * DV_GAP_Q / 1000;   // 말 속도 약 분당 150단어
+  return Math.max(1, Math.round(sec / 60));
+}
+function dvResumeIdx(pl) {
+  const p = DV.pos;
+  if (!p || p.scope !== scopeKey(DV.opts)) return -1;
+  const k = pl.items.findIndex(it => it.key === p.key);
+  if (k >= 0) return k;
+  const [wk, qid] = p.key.split("|"), b = pl.blocks.find(x => x.wk === wk && x.qid === qid);   // 그 문장이 없어졌으면 그 질문 처음
+  return b ? b.start : -1;
+}
+
+/* ---- 시작 화면 ---- */
+const LT = { pre: null };                       // 미리 받아두기 상태 { state: count|ready|run|done, need, chars, have, done, fail, cancel }
+function renderListen() {
+  const o = DV.opts, weeks = Object.keys(store.weeks).sort().reverse();
+  if (o.scope === "pick" && (!o.wk || !store.weeks[o.wk])) o.wk = weeks.find(k => k !== weekKey()) || weeks[0] || null;
+  const pl = buildDrive(o), ri = dvResumeIdx(pl);
+  let h = '<div class="head"><h1>듣기</h1>' + GEAR_BTN + "</div>" +
+    '<p class="note" style="margin:0 2px 14px">다듬은 문장을 차·이어폰으로 이어 들어요. 질문을 먼저 읽고, 그 질문의 최종본 문장을 차례로 읽어요.</p>' +
+    '<div class="sec-t" style="margin-top:6px">범위</div><div class="seg" role="group" aria-label="범위">' +
+    [["week", "이번 주"], ["pick", "지난 주"], ["all", "전체"]].map(([v, l]) => '<button data-lt-scope="' + v + '" aria-pressed="' + (o.scope === v) + '">' + l + "</button>").join("") + "</div>";
+  if (o.scope === "pick") {
+    h += weeks.length ? '<div class="lt-weeks">' + weeks.map(k => '<button class="lt-wk" data-lt-wk="' + k + '" aria-pressed="' + (o.wk === k) + '"><span class="tp-emo" aria-hidden="true">' +
+      esc(weekTitle(k).split(" ")[0]) + "</span><span><b>" + esc(weekTitle(k).split(" ").slice(1).join(" ")) + "</b><span>" + weekRange(k) + (k === weekKey() ? " · 이번 주" : "") + "</span></span></button>").join("") + "</div>"
+      : '<p class="note">아직 기록이 없어요.</p>';
+  }
+  h += '<div class="sec-t">속도</div><div class="seg" role="group" aria-label="속도">' +
+    RATES.map(r => '<button data-rate="' + r + '" aria-pressed="' + (settings.rate === r) + '">' + rateLabel(r) + "</button>").join("") + "</div>";
+  if (!pl.items.length) {
+    h += '<div class="lt-sum">들을 문장이 없어요.<br><span style="color:var(--muted);font-size:14px">질문을 첨삭까지 끝내면(듣기 단계) 여기서 이어 들을 수 있어요.</span></div>';
+    $("listenPage").innerHTML = h;
+    return;
+  }
+  h += '<div class="lt-sum">질문 <b>' + pl.blocks.length + "</b>개 · 문장 <b>" + (pl.items.length - pl.blocks.length) + "</b>개 · 약 <b>" + driveMinutes(pl, settings.rate) + "</b>분</div>";
+  h += '<div class="lt-pre">' + preHtml(pl) + "</div>";
+  h += '<div class="lt-foot">' + (ri >= 0
+    ? '<div class="two"><button class="outline-btn" data-lt-start="0">처음부터</button><button class="go lt-go" data-lt-start="resume"><span class="lt-go-t">' + IC.play + '이어 듣기</span><span class="lt-resume">' + esc(DV.pos.label || "") + "</span></button></div>"
+    : '<button class="go" data-lt-start="0">' + IC.play + "시작</button>") + "</div>";
+  $("listenPage").innerHTML = h;
+}
+/* 미리 받아두기: 이 범위에서 폰에 저장 안 된 문장만 ElevenLabs로 만들어 둠(차에서 끊기지 않게). 키가 없으면 안내만 */
+function preHtml(pl) {
+  const P = LT.pre && LT.pre.scope === scopeKey(DV.opts) ? LT.pre : null;
+  if (!settings.apiKey) return '<p class="note">API 키가 없어서 폰 기본 음성으로 읽어요. 화면이 꺼지면 멈출 수 있어요. 설정에서 키를 넣으면 앱 목소리로 미리 받아 둘 수 있어요.</p>';
+  if (!P) return '<button class="outline-btn" data-lt-pre="count">미리 받아두기 · 출발 전에</button>';
+  if (P.state === "count") return '<p class="note">저장된 음성을 세는 중…</p>';
+  if (P.state === "ready") return P.need.length
+    ? '<p class="note" style="margin-top:0">새로 만들 문장 <b>' + P.need.length + "</b>개 · 약 " + P.chars + "자(이미 저장된 문장 " + P.have + "개)</p>" +
+      '<button class="outline-btn" data-lt-pre="run">만들기</button>'
+    : '<p class="note">이 범위의 문장은 모두 폰에 저장돼 있어요. 인터넷 없이도 들을 수 있어요.</p>';
+  if (P.state === "run") return '<p class="note" style="margin-top:0">만드는 중 ' + P.done + " / " + P.need.length + '</p><div class="pbar"><i style="width:' + Math.round(P.done / P.need.length * 100) + '%"></i></div>' +
+    '<button class="outline-btn" data-lt-pre="cancel">취소</button>';
+  return '<p class="note">' + (P.stopped ? "멈췄어요 · " + P.stopped : "다 받아 뒀어요") + " — " + P.done + "개 만듦" + (P.fail ? " · 실패 " + P.fail + "개" : "") + "</p>";
+}
+async function preCount() {
+  const pl = buildDrive(DV.opts), sk = scopeKey(DV.opts);
+  const P = LT.pre = { scope: sk, state: "count", need: [], chars: 0, have: 0, done: 0, fail: 0 };
+  renderListen();
+  const seen = new Set();
+  for (const it of pl.items) {
+    const t = getScript(it.text).speech;
+    if (seen.has(t)) continue;
+    seen.add(t);
+    if (await Player.isCached(t)) P.have++; else { P.need.push(t); P.chars += t.length; }
+    if (LT.pre !== P) return;
+  }
+  P.state = "ready";
+  if (tab === "listen") renderListen();
+}
+async function preRun() {
+  const P = LT.pre;
+  if (!P || P.state !== "ready") return;
+  P.state = "run";
+  renderListen();
+  let i = 0;
+  const worker = async () => {
+    while (LT.pre === P && P.state === "run" && i < P.need.length) {
+      const t = P.need[i++];
+      try { await Player.fetchClip(t); P.done++; }
+      catch (e) {
+        if (/키|크레딧|연결/.test(e.message)) { P.stopped = e.message; P.state = "end"; break; }   // 계속해도 실패하는 오류는 바로 멈춤
+        P.fail++;
+      }
+      if (tab === "listen" && LT.pre === P) renderListen();
+    }
+  };
+  await Promise.all([worker(), worker()]);                                   // 두 문장씩 동시에
+  if (LT.pre === P && P.state === "run") P.state = "end";
+  if (tab === "listen" && LT.pre === P) renderListen();
+}
+$("listenPage").addEventListener("click", e => {
+  const t = e.target;
+  let b;
+  if ((b = t.closest("[data-lt-scope]"))) { DV.opts.scope = b.dataset.ltScope; saveDrive(); LT.pre = null; buzz(); renderListen(); return; }
+  if ((b = t.closest("[data-lt-wk]"))) { DV.opts.wk = b.dataset.ltWk; saveDrive(); LT.pre = null; buzz(); renderListen(); return; }
+  if ((b = t.closest("[data-rate]"))) { setRate(+b.dataset.rate); renderListen(); return; }
+  if ((b = t.closest("[data-lt-pre]"))) {
+    const a = b.dataset.ltPre;
+    if (a === "count") preCount();
+    else if (a === "run") preRun();
+    else if (a === "cancel" && LT.pre) { LT.pre.state = "end"; LT.pre.stopped = "취소했어요"; renderListen(); }
+    return;
+  }
+  if ((b = t.closest("[data-lt-start]"))) dvStart(b.dataset.ltStart === "resume");
+});
+
+/* ---- 재생 화면 ---- */
+const DVU = { el: $("drive"), pos1: $("dvPos1"), pos2: $("dvPos2"), prev: $("dvPrev"), cur: $("dvCur"), next: $("dvNext"), note: $("dvNote"), toggle: $("dvToggle") };
+function dvEl(k) {                                                            // 문장 요소는 필요할 때 만들어 다시 씀(노래방 강조가 붙는 .sc)
+  if (!DV.els[k]) { const d = document.createElement("div"); d.className = "dv-en"; d.lang = "en"; d.innerHTML = scriptHtml(DV.pl.items[k].text); DV.els[k] = d; }
+  return DV.els[k].querySelector(".sc");
+}
+function dvLabels(k) {
+  const it = DV.pl.items[k], wkLabel = DV.opts.scope === "week" ? "" : " · " + weekRange(it.wk);
+  return [weekTitle(it.wk) + " · 질문 " + it.n + wkLabel, (it.kind === "q" ? "질문" : "문장 " + (it.i + 1) + " / " + it.total) + " · " + (it.b + 1) + " / " + DV.pl.blocks.length + "번째 질문"];
+}
+function dvShow(k) {
+  const pl = DV.pl, it = pl.items[k];
+  DV.idx = k;
+  const [a, b] = dvLabels(k);
+  DVU.pos1.textContent = a;
+  DVU.pos2.textContent = b;
+  const line = j => { const x = pl.items[j]; return x ? esc(x.text) : ""; };
+  DVU.prev.innerHTML = line(k - 1);
+  DVU.next.innerHTML = line(k + 1);
+  DVU.cur.className = "dv-line dv-cur" + (it.kind === "q" ? " q" : "");
+  DVU.cur.innerHTML = '<span class="dv-k' + (it.kind === "q" ? " q" : "") + '">' + (it.kind === "q" ? "질문 " + it.n : "문장 " + (it.i + 1)) + "</span>";
+  dvEl(k);
+  DVU.cur.appendChild(DV.els[k]);
+  if (it.ko) DVU.cur.insertAdjacentHTML("beforeend", '<div class="dv-ko">' + esc(it.ko) + "</div>");
+  $("dvStage").scrollTop = 0;
+}
+function dvSavePos() {
+  if (!DV.pl || DV.done || !DV.pl.items[DV.idx]) return;
+  const it = DV.pl.items[DV.idx];
+  DV.pos = { scope: scopeKey(DV.opts), key: it.key, label: weekTitle(it.wk).split(" ").slice(1).join(" ") + " · 질문 " + it.n + " · " + (it.kind === "q" ? "질문" : "문장 " + (it.i + 1) + "/" + it.total) };
+  saveDrive();
+}
+function dvStart(resume) {
+  const pl = buildDrive(DV.opts);
+  if (!pl.items.length) { toast("들을 문장이 없어요"); return; }
+  DV.pl = pl; DV.els = []; DV.done = false; DV.interrupted = false;
+  const k = resume ? Math.max(0, dvResumeIdx(pl)) : 0;
+  DV.rd = createReader({
+    items: () => DV.pl.items.map((x, j) => ({ get el() { return dvEl(j); } })),
+    rate: () => settings.rate,
+    gap: j => (DV.pl.items[j + 1] && DV.pl.items[j + 1].kind === "q" ? DV_GAP_Q : DV_GAP),
+    onItem: j => { dvShow(j); dvSavePos(); dvMedia(); dvPrefetch(j); },
+    onEnd: complete => { if (complete) { DV.done = true; DV.pos = null; saveDrive(); } dvPaint(); },
+    onChange: dvPaint
+  });
+  if (!DV.open) { DV.open = true; history.pushState({ drive: 1 }, ""); }
+  DVU.el.hidden = false;
+  $("app").inert = true;
+  dvMediaHandlers(true);
+  dvShow(k);
+  dvGo(k);
+}
+function dvHide() {
+  if (DV.rd) DV.rd.stop();
+  Player.stop();
+  dvSavePos();
+  DV.open = false;
+  DVU.el.hidden = true;
+  $("app").inert = false;
+  dvKeepAlive(false);
+  dvMediaHandlers(false);
+  if (tab === "listen") renderListen();
+}
+function closeDrive() { if (DV.open && history.state && history.state.drive) history.back(); else dvHide(); }
+function dvGo(k) {
+  if (!DV.pl) return;
+  DV.done = false; DV.interrupted = false;
+  DV.rd.play(Math.max(0, Math.min(k, DV.pl.items.length - 1)), 0, false);
+}
+function dvToggle() {
+  const s = DV.rd.state();
+  if (s.active) { DV.rd.toggle(); return; }
+  dvGo(DV.done ? 0 : DV.idx);
+}
+function dvStep(d) {
+  const k = DV.idx + d;
+  if (k < 0) { dvGo(0); return; }
+  if (k >= DV.pl.items.length) { toast("마지막 문장이에요"); return; }
+  dvGo(k);
+}
+function dvNextQ() {
+  const b = DV.pl.items[DV.idx].b + 1;
+  if (b >= DV.pl.blocks.length) { toast("마지막 질문이에요"); return; }
+  dvGo(DV.pl.blocks[b].start);
+}
+function dvPaint() {
+  if (!DV.open || !DV.rd) return;
+  const s = DV.rd.state(), playing = s.active && !s.paused;
+  DVU.toggle.innerHTML = (playing ? IC.pause : IC.play) + "<span>" + (playing ? "일시정지" : DV.done ? "처음부터" : "재생") + "</span>";
+  DVU.toggle.setAttribute("aria-label", playing ? "일시정지" : "재생");
+  DVU.note.textContent = DV.done ? "끝까지 다 들었어요" : playing ? "" : DV.interrupted ? "소리가 끊겨서 멈췄어요 · 재생을 누르면 이 문장부터" : "일시정지";
+  dvKeepAlive(playing);
+  try { if (navigator.mediaSession) navigator.mediaSession.playbackState = playing ? "playing" : "paused"; } catch (e) {}
+}
+/* 소리가 끊김(전화·다른 앱 소리) → 그 문장 처음에서 일시정지 상태로 기다림 */
+function dvInterrupt() {
+  if (!DV.open || !DV.rd || !DV.rd.state().active) return;
+  const k = DV.idx;
+  DV.interrupted = true;
+  DV.rd.stop();
+  DV.idx = k;
+  dvSavePos();
+  dvPaint();
+}
+Player.onInterrupt(dvInterrupt);
+Player.onChange(() => { if (DV.open) dvPaint(); });
+/* 키가 없으면 폰 기본 음성 — 화면이 꺼지거나 다른 앱으로 가면 소리가 안 나고 넘어가 버리므로 그 문장에서 멈춤 */
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden" && DV.open && !settings.apiKey && DV.rd && DV.rd.state().active && !Player.isPaused()) dvInterrupt();
+});
+function dvMedia() {
+  const ms = navigator.mediaSession;
+  if (!ms || !DV.pl) return;
+  try {
+    const it = DV.pl.items[DV.idx], [a, b] = dvLabels(DV.idx);
+    ms.metadata = new MediaMetadata({ title: getScript(it.text).speech, artist: a + " · " + b, album: "영어일기 · 듣기" });
+  } catch (e) {}
+}
+function dvMediaHandlers(on) {
+  const ms = navigator.mediaSession;
+  if (!ms) return;
+  const set = (a, f) => { try { ms.setActionHandler(a, on ? f : null); } catch (e) {} };
+  set("play", () => { const s = DV.rd.state(); if (s.active) DV.rd.resume(); else dvToggle(); });
+  set("pause", () => { if (DV.rd.state().active) DV.rd.pause(); });
+  set("nexttrack", () => dvStep(1));
+  set("previoustrack", () => dvStep(-1));
+  if (!on) try { ms.metadata = null; ms.playbackState = "none"; } catch (e) {}
+}
+/* 조용한 소리(잠금화면·블루투스 조작용) — 음성과 같은 44.1kHz·16비트 */
+function silentWav(sec) {
+  const rate = 44100, n = rate * sec, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); w(8, "WAVE"); w(12, "fmt ");
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  w(36, "data"); v.setUint32(40, n * 2, true);
+  return new Blob([buf], { type: "audio/wav" });
+}
+function dvKeepAlive(on) {
+  if (on && !DV.ka) {
+    try {
+      DV.ka = new Audio(URL.createObjectURL(silentWav(6)));                    // 5초보다 길어야 잠금화면 조작이 붙음
+      DV.ka.loop = true;
+      DV.ka.addEventListener("pause", () => {
+        if (DV.kaSelf) { DV.kaSelf = false; return; }                          // 앱이 직접 멈춤
+        if (DV.kaWant) dvInterrupt();                                          // 시스템이 멈춤(전화 등)
+      });
+    } catch (e) { return; }
+  }
+  if (!DV.ka) return;
+  clearTimeout(DV.kaT);
+  if (on) {
+    DV.kaWant = true;
+    try { if (DV.ka.paused) { const p = DV.ka.play(); if (p && p.catch) p.catch(() => {}); } } catch (e) {}
+    return;
+  }
+  const off = () => { DV.kaWant = false; try { if (!DV.ka.paused) { DV.kaSelf = true; DV.ka.pause(); } } catch (e) {} };
+  if (DV.open) DV.kaT = setTimeout(off, 400); else off();                    // 문장을 옮길 때 깜빡이지 않게 조금 늦게 끔
+}
+/* 다음 3문장 미리 만들기(키가 있고 인터넷이 될 때만, 실패는 조용히) */
+let dvPreQ = Promise.resolve();
+function dvPrefetch(k) {
+  if (!settings.apiKey || navigator.onLine === false) return;
+  for (let j = k + 1; j <= k + 3 && j < DV.pl.items.length; j++) {
+    const t = getScript(DV.pl.items[j].text).speech;
+    dvPreQ = dvPreQ.then(() => (DV.open ? Player.fetchClip(t).catch(() => {}) : null));
+  }
+}
+$("dvX").addEventListener("click", closeDrive);
+DVU.toggle.addEventListener("click", () => { dvToggle(); buzz(); });
+$("dvPrevB").addEventListener("click", () => { dvStep(-1); buzz(); });
+$("dvNextB").addEventListener("click", () => { dvStep(1); buzz(); });
+$("dvNextQ").addEventListener("click", () => { dvNextQ(); buzz(); });
+
+/* =====================================================================
+   설정 화면 (전체 화면 — 탭 머리 줄의 조절 아이콘)
+   API 키는 이 폰에만(ediary.settings.v1). 화면에는 끝 4자리만 보여 줌
+   ===================================================================== */
+const ST = { open: false, el: $("settings"), body: $("stBody"), clearAsk: false, keyT: 0 };
+const TRY_TEXT = "Hi! This is how I'll read your diary out loud.";
+function keyState() {
+  const k = settings.apiKey;
+  return k ? "저장됨 <b>····" + esc(k.slice(-4)) + "</b> · 이 폰에만 있어요" : "없음 — 폰 기본 음성으로 읽어요";
+}
+function stRender() {
+  ST.clearAsk = false;
+  ST.body.innerHTML = '<div class="st-sec" style="margin-bottom:28px"><h2>글자 크기</h2>' +
+    '<p class="note">문장을 보며 말하는 화면(듣기·암송·말하기·워밍업·주말 복습·듣기 탭)의 글자 크기예요.</p>' +
+    '<div class="seg" role="group" aria-label="글자 크기" style="margin-top:12px">' +
+    TEXT_ZOOMS.map((z, i) => '<button data-tz="' + z + '" aria-pressed="' + (settings.textZoom === z) + '">' + ["기본", "크게", "더 크게", "아주 크게"][i] + "</button>").join("") + "</div>" +
+    '<div class="tz-prev" aria-hidden="true"><div class="en">I usually crash right after a night shift.</div><div class="ko">야간 끝나면 보통 바로 뻗어.</div></div></div>' +
+    '<div class="st-sec"><h2>음성</h2>' +
+    '<p class="note">일기 문장을 읽어 줄 목소리예요. ElevenLabs API 키가 있으면 자연스러운 목소리로, 없으면 폰 기본 음성으로 읽어요. 한 번 만든 문장 음성은 폰에 저장돼서 다시 들을 때는 크레딧이 들지 않아요.</p>' +
+    '<label class="st-l" for="stKey">ElevenLabs API 키</label>' +
+    '<div class="key-row"><input class="inp masked" id="stKey" type="text" inputmode="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" placeholder="키를 붙여넣으세요" value="' + esc(settings.apiKey) + '">' +
+    '<button class="sub-btn" data-st="show" aria-pressed="false">보기</button></div>' +
+    '<p class="key-state" id="stKeyState">' + keyState() + "</p>" +
+    '<label class="st-l" for="stVoice">목소리</label><select class="sel" id="stVoice">' +
+    EL_VOICES.map(v => '<option value="' + v.id + '"' + (v.id === settings.voice ? " selected" : "") + ">" + esc(v.name) + "</option>").join("") + "</select>" +
+    '<label class="st-l" for="stModel">모델</label><select class="sel" id="stModel">' +
+    EL_MODELS.map(v => '<option value="' + v.id + '"' + (v.id === settings.model ? " selected" : "") + ">" + esc(v.name) + "</option>").join("") + "</select>" +
+    '<div class="st-l">속도</div><div class="seg" role="group" aria-label="속도">' +
+    RATES.map(r => '<button data-rate="' + r + '" aria-pressed="' + (settings.rate === r) + '">' + rateLabel(r) + "</button>").join("") + "</div>" +
+    '<button class="outline-btn" data-st="try">' + IC.speaker + "목소리 들어보기</button>" +
+    '<button class="outline-btn danger" data-st="clear">저장된 음성 지우기</button>' +
+    '<p class="note">목소리 들어보기는 짧은 문장 하나(약 50자)를 만들어요. 목소리나 모델을 바꾸면 문장 음성을 새로 만들어요.</p></div>';
+}
+function openSettings() {
+  if (ST.open) return;
+  ST.open = true;
+  history.pushState({ settings: 1 }, "");
+  stRender();
+  ST.el.hidden = false;
+  $("app").inert = true;
+  ST.body.scrollTop = 0;
+}
+function stHide() {
+  Player.stop();
+  clearTimeout(ST.keyT);
+  saveSettings();
+  ST.open = false;
+  ST.el.hidden = true;
+  $("app").inert = false;
+}
+function closeSettings() { if (ST.open && history.state && history.state.settings) history.back(); else stHide(); }
+$("stX").addEventListener("click", closeSettings);
+document.addEventListener("click", e => { if (e.target.closest("[data-open-settings]")) openSettings(); });
+ST.body.addEventListener("input", e => {
+  if (e.target.id !== "stKey") return;
+  clearTimeout(ST.keyT);
+  ST.keyT = setTimeout(() => {
+    settings.apiKey = e.target.value.replace(/\s+/g, "");
+    saveSettings();
+    $("stKeyState").innerHTML = keyState();
+  }, 300);
+});
+ST.body.addEventListener("change", e => {
+  const t = e.target;
+  if (t.id === "stVoice" && EL_VOICES.some(v => v.id === t.value)) settings.voice = t.value;
+  else if (t.id === "stModel" && EL_MODELS.some(v => v.id === t.value)) settings.model = t.value;
+  else return;
+  Player.stop();
+  saveSettings();
+  buzz();
+});
+ST.body.addEventListener("click", e => {
+  const b = e.target.closest("[data-st], [data-rate], [data-tz]");
+  if (!b) return;
+  if (b.dataset.rate) { setRate(+b.dataset.rate); return; }
+  if (b.dataset.tz) {                                                          // 글자 크기: 바로 반영(미리보기 상자도)
+    const z = +b.dataset.tz;
+    if (!TEXT_ZOOMS.includes(z)) return;
+    settings.textZoom = z; saveSettings(); applyTextZoom();
+    ST.body.querySelectorAll("[data-tz]").forEach(x => x.setAttribute("aria-pressed", String(+x.dataset.tz === z)));
+    buzz(); return;
+  }
+  const a = b.dataset.st;
+  if (a === "show") {
+    const inp = $("stKey"), on = inp.classList.contains("masked");             // 비밀번호 칸이 아니라 가린 글 칸(폰이 비밀번호로 저장하자고 묻지 않게)
+    inp.classList.toggle("masked", !on);
+    b.textContent = on ? "숨기기" : "보기";
+    b.setAttribute("aria-pressed", String(on));
+  } else if (a === "try") {
+    if (b.classList.contains("playing")) { Player.stop(); return; }
+    const k = $("stKey").value.replace(/\s+/g, "");                              // 방금 붙여넣은 키도 바로 반영
+    if (k !== settings.apiKey) { settings.apiKey = k; saveSettings(); $("stKeyState").innerHTML = keyState(); }
+    Player.play(TRY_TEXT, b, {});
+  } else if (a === "clear") {
+    if (!ST.clearAsk) { ST.clearAsk = true; b.textContent = "한 번 더 누르면 지워요"; return; }
+    Player.stop();
+    AudioCache.clear();
+    ST.clearAsk = false;
+    b.textContent = "저장된 음성 지우기";
+    toast("저장된 음성을 지웠어요");
+  }
+});
+
+/* ---------- 날짜가 바뀌면(자정·새 주) 화면을 새로 ---------- */
+let lastDay = dateKey();
+setInterval(() => {
+  const d = dateKey();
+  if (d === lastDay) return;
+  lastDay = d;
+  if (!F.open && tab === "week") renderWeek();
+}, 15000);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible") { if (saveTimer) { clearTimeout(saveTimer); save(); } return; }
+  if (!F.open && tab === "week") renderWeek();
+});
+
+/* ---------- 앱 업데이트(5단계) ----------
+   ① sw.js는 늘 인터넷의 최신 파일을 먼저 받음(no-cache) → 앱을 새로 열면 새 버전.
+   ② 새 버전을 올릴 때마다 sw.js의 CACHE 숫자를 올림 → 앱을 쓰다가 다시 화면으로 돌아올 때(visibilitychange) 새 서비스워커를 확인(update),
+      받아서 바꿔 끼워지면(controllerchange) 위쪽에 "새 버전이 나왔어요 [새로 고침]" — 말하기·듣기 중일 수 있어서 저절로 새로 고치지 않음.
+   처음 설치할 때(원래 서비스워커가 없을 때)는 막대를 띄우지 않음. https에서만 등록(로컬 테스트는 테스트가 직접 등록) */
+const UPD = { had: false, reg: null };
+function showUpdate() { $("upd").hidden = false; }
+$("updGo").addEventListener("click", () => { if (saveTimer) { clearTimeout(saveTimer); save(); } location.reload(); });
+$("updX").addEventListener("click", () => { $("upd").hidden = true; });
+function setupSW() {
+  if (!("serviceWorker" in navigator)) return;
+  UPD.had = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener("controllerchange", () => { if (UPD.had) showUpdate(); UPD.had = true; });
+  navigator.serviceWorker.register("sw.js").then(r => { UPD.reg = r; }).catch(() => { /* sw.js가 없으면 설치·오프라인만 빠지고 앱은 그대로 */ });
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && UPD.reg) UPD.reg.update().catch(() => {}); });
+}
+if (location.protocol === "https:") setupSW();
+
+/* ---------- 시작: 항상 이번 주 탭 ---------- */
+switchTab("week");
+</script>
+</body>
+</html>
