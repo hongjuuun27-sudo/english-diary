@@ -298,7 +298,7 @@
   /* ---------- 듣기 탭: 시작 화면 ---------- */
   .lt-weeks{ display:flex; flex-direction:column; gap:8px; margin-top:10px; }
   .lt-wk{ display:flex; align-items:center; gap:10px; width:100%; min-height:52px; padding:10px 14px; border-radius:14px; border:1.5px solid var(--line); background:var(--card); text-align:left; }
-  .lt-wk[aria-pressed="true"]{ border-color:var(--accent); background:var(--accent-soft); }
+  .lt-wk[aria-pressed="true"], .lt-wk.lt-this{ border-color:var(--accent); background:var(--accent-soft); }
   .lt-wk .tp-emo{ font-size:22px; }
   .lt-wk b{ display:block; font-size:15.5px; }
   .lt-wk span span{ display:block; font-size:13px; color:var(--faint); font-variant-numeric:tabular-nums; }
@@ -329,6 +329,11 @@
   .dv-cur.q .dv-en{ font-size:calc(21px * var(--tz)); color:var(--text-2); }
   .dv-ko{ margin-top:8px; font-size:calc(16px * var(--tz)); line-height:1.5; color:var(--muted); }
   .dv-note{ flex:none; min-height:24px; margin:0; padding:0 var(--pad); text-align:center; font-size:14px; color:var(--muted); }
+  .dv-echo{ display:inline-flex; align-items:center; gap:10px; color:var(--accent); font-weight:650; font-size:15px; }
+  .dv-echo i{ display:block; width:120px; height:6px; border-radius:3px; background:var(--accent-soft); outline:1px solid var(--line); overflow:hidden; }
+  .dv-echo b{ display:block; height:100%; border-radius:3px; background:var(--accent); transform-origin:left; animation:dvEcho linear both; }
+  @keyframes dvEcho{ from{ transform:scaleX(0); } to{ transform:scaleX(1); } }
+  .lt-mode-n{ margin:8px 2px 0; }
   .dv-ctl{ flex:none; padding:10px max(var(--pad), env(safe-area-inset-right)) calc(env(safe-area-inset-bottom, 0px) + 14px) max(var(--pad), env(safe-area-inset-left)); }
   .dv-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
   .dv-b{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; min-height:72px; border-radius:18px; background:var(--bg-2); font-size:13px; font-weight:650; color:var(--text-2); }
@@ -1135,9 +1140,22 @@ function createReader(o) {
           changed();
           const it = items[k];
           const sc = SCRIPTS[+it.el.dataset.sc];
-          await Player.enqueue(sc.speech, it.btn || null, { script: sc, from, rate: o.rate ? o.rate() : undefined, track: makeTrack(it.el) });
+          const reps = !single && o.repeat ? Math.max(1, o.repeat(k) || 1) : 1;                          // 같은 문장 되풀이(듣기 탭 '따라 말하기'의 반복 횟수 3·5번)
+          for (let r = 1; r <= reps; r++) {
+            if (r > 1) {
+              const g = o.again(k, r - 1);                                                             // 되풀이 사이 쉼(r - 1번째 따라 말할 시간)
+              if (g) await (typeof g === "number" ? sleep(g) : g);
+              while (Player.isPaused() && alive()) await sleep(120);
+              if (!alive()) return;
+              if (o.onRepeat) o.onRepeat(k, r);
+            }
+            await Player.enqueue(sc.speech, it.btn || null, { script: sc, from: r > 1 ? 0 : from, rate: o.rate ? o.rate() : undefined, track: makeTrack(it.el) });
+            if (!alive()) break;
+          }
           if (!alive() || single) break;
-          if (k < items.length - 1) await sleep(typeof o.gap === "function" ? o.gap(k) : o.gap == null ? 450 : o.gap);   // gap(방금 끝난 번호) — 듣기 탭은 새 질문 앞에서 더 쉼
+          const g = k < items.length - 1 ? (typeof o.gap === "function" ? o.gap(k) : o.gap == null ? 450 : o.gap)   // gap(방금 끝난 번호) — 듣기 탭은 새 질문 앞에서 더 쉼
+            : o.tail ? o.tail(k) : 0;                                                                        // tail = 마지막 문장 뒤(듣기 탭 '따라 말하기'의 쉬는 시간)
+          if (g) await (typeof g === "number" ? sleep(g) : g);                                               // 숫자 = 그만큼 쉼, Promise = 끝날 때까지(일시정지 중엔 안 감)
         }
         complete = alive();
       } finally {
@@ -2271,17 +2289,22 @@ $("logPage").addEventListener("click", e => {
      잠금화면·블루투스·차: 재생/일시정지 · 다음/이전 = 다음/이전 문장(Media Session) — 짧은 소리만으로는 폰이 조작을 붙여 주지 않아서
      재생하는 동안 조용한 소리(44.1kHz·16비트, 6초 반복)를 틀어 둠(한 장 영어와 같은 방식).
    문장 = 첨삭을 저장한(듣기 단계까지 간) 질문의 최종본 영어. 범위 '전체'는 최신 주부터.
-   뺀 것(일기 전용으로 줄임): 따라 말할 시간, 효과음, 랜덤 순서. 화면 꺼짐 방지는 아직 안 넣음(사용자가 폰으로 보고 정함)
-   저장 ediary.drive.v1 { opts: { scope: week|pick|all, wk }, pos: { scope, wk, key, label } | null } — key = "주|질문 id|문장 번호(-1 = 질문)"
+   듣기 방식(opts.mode): 끊지 않고 듣기(flow) / 따라 말하기(one — 문장이 끝나면 그 문장이 재생된 시간만큼 "따라 말해 보세요" 막대,
+     한 장 영어 드라이브 모드의 dvGap과 같음: 재생 시간(속도 반영) 1.2~12초 + 0.25초, 못 재면 단어 × 0.38초 ÷ 속도. 질문은 쉬지 않음).
+     반복 횟수(opts.rep 1·3·5 — 따라 말하기일 때만): 재생 → 쉼 → 다시 재생 … 횟수만큼 한 뒤 다음 문장(한 장 영어 rvEchoEnd 방식). 질문은 한 번만.
+   뺀 것(일기 전용으로 줄임): 효과음, 랜덤 순서. 화면 꺼짐 방지는 아직 안 넣음(사용자가 폰으로 보고 정함)
+   저장 ediary.drive.v1 { opts: { scope: week|pick|all, wk, mode: flow|one, rep: 1|3|5 }, pos: { scope, wk, key, label } | null } — key = "주|질문 id|문장 번호(-1 = 질문)"
    ===================================================================== */
-const DRIVE_KEY = "ediary.drive.v1";
+const DRIVE_KEY = "ediary.drive.v1", DV_REPS = [1, 3, 5];
 const DV = (() => {
   let s = null;
   try { s = JSON.parse(localStorage.getItem(DRIVE_KEY) || "null"); } catch (e) {}
-  const opts = Object.assign({ scope: "week", wk: null }, s && s.opts || {});
+  const opts = Object.assign({ scope: "week", wk: null, mode: "flow", rep: 1 }, s && s.opts || {});
   if (!["week", "pick", "all"].includes(opts.scope)) opts.scope = "week";
+  if (!["flow", "one"].includes(opts.mode)) opts.mode = "flow";
+  if (!DV_REPS.includes(opts.rep)) opts.rep = 1;
   return { opts, pos: s && s.pos && typeof s.pos.key === "string" ? s.pos : null,
-    open: false, pl: null, idx: 0, done: false, interrupted: false, rd: null, els: [], ka: null, kaSelf: false, kaWant: false, kaT: 0, pre: null };
+    open: false, pl: null, idx: 0, done: false, interrupted: false, rd: null, els: [], ka: null, kaSelf: false, kaWant: false, kaT: 0, pre: null, echo: false, say: "" };
 })();
 function saveDrive() { try { localStorage.setItem(DRIVE_KEY, JSON.stringify({ opts: DV.opts, pos: DV.pos })); } catch (e) {} }
 const DV_GAP = 450, DV_GAP_Q = 1200;
@@ -2289,7 +2312,7 @@ function weekTitle(wk) { const w = store.weeks[wk], t = w && TOPIC_BY_ID[w.topic
 /* 범위에 들어가는 주(최신이 앞) */
 function driveWeeks(o) {
   if (o.scope === "week") return [weekKey()];
-  if (o.scope === "pick") return o.wk && store.weeks[o.wk] ? [o.wk] : [];
+  if (o.scope === "pick") return o.wk && o.wk < weekKey() && store.weeks[o.wk] ? [o.wk] : [];   // 지난 주 = 이번 주보다 앞 주만
   return Object.keys(store.weeks).sort().reverse();
 }
 const scopeKey = o => o.scope + (o.scope === "pick" ? ":" + (o.wk || "") : "");
@@ -2312,9 +2335,14 @@ function buildDrive(o) {
   });
   return { items, blocks };
 }
-function driveMinutes(pl, rate) {
+function driveMinutes(pl, rate, mode, rep) {
   const words = pl.items.reduce((n, it) => n + wordCount(it.text), 0);
-  const sec = words / 2.5 / rate + pl.items.length * DV_GAP / 1000 + pl.blocks.length * DV_GAP_Q / 1000;   // 말 속도 약 분당 150단어
+  let sec = words / 2.5 / rate + pl.items.length * DV_GAP / 1000 + pl.blocks.length * DV_GAP_Q / 1000;   // 말 속도 약 분당 150단어
+  if (mode === "one") pl.items.forEach(it => {                              // 따라 말할 시간 × 횟수 + 다시 듣는 시간
+    if (it.kind !== "s") return;
+    const say = wordCount(it.text) / 2.5 / rate, n = rep || 1;
+    sec += n * (Math.min(12, Math.max(1.2, say)) + 0.25) + (n - 1) * say;
+  });
   return Math.max(1, Math.round(sec / 60));
 }
 function dvResumeIdx(pl) {
@@ -2328,27 +2356,39 @@ function dvResumeIdx(pl) {
 
 /* ---- 시작 화면 ---- */
 const LT = { pre: null };                       // 미리 받아두기 상태 { state: count|ready|run|done, need, chars, have, done, fail, cancel }
+function ltCard(k, tag) {                                                    // 주 카드 안쪽: 이모지 · 주제 이름 · 날짜 범위
+  return '<span class="tp-emo" aria-hidden="true">' + esc(weekTitle(k).split(" ")[0]) + "</span><span><b>" + esc(weekTitle(k).split(" ").slice(1).join(" ")) + "</b><span>" + weekRange(k) + (tag || "") + "</span></span>";
+}
 function renderListen() {
-  const o = DV.opts, weeks = Object.keys(store.weeks).sort().reverse();
-  if (o.scope === "pick" && (!o.wk || !store.weeks[o.wk])) o.wk = weeks.find(k => k !== weekKey()) || weeks[0] || null;
+  const o = DV.opts, cur = weekKey(), past = Object.keys(store.weeks).filter(k => k < cur).sort().reverse();
+  if (o.scope === "pick" && !past.includes(o.wk)) o.wk = past[0] || null;
   const pl = buildDrive(o), ri = dvResumeIdx(pl);
   let h = '<div class="head"><h1>듣기</h1>' + GEAR_BTN + "</div>" +
     '<p class="note" style="margin:0 2px 14px">다듬은 문장을 차·이어폰으로 이어 들어요. 질문을 먼저 읽고, 그 질문의 최종본 문장을 차례로 읽어요.</p>' +
     '<div class="sec-t" style="margin-top:6px">범위</div><div class="seg" role="group" aria-label="범위">' +
     [["week", "이번 주"], ["pick", "지난 주"], ["all", "전체"]].map(([v, l]) => '<button data-lt-scope="' + v + '" aria-pressed="' + (o.scope === v) + '">' + l + "</button>").join("") + "</div>";
-  if (o.scope === "pick") {
-    h += weeks.length ? '<div class="lt-weeks">' + weeks.map(k => '<button class="lt-wk" data-lt-wk="' + k + '" aria-pressed="' + (o.wk === k) + '"><span class="tp-emo" aria-hidden="true">' +
-      esc(weekTitle(k).split(" ")[0]) + "</span><span><b>" + esc(weekTitle(k).split(" ").slice(1).join(" ")) + "</b><span>" + weekRange(k) + (k === weekKey() ? " · 이번 주" : "") + "</span></span></button>").join("") + "</div>"
-      : '<p class="note">아직 기록이 없어요.</p>';
-  }
+  if (o.scope === "week") h += '<div class="lt-weeks"><div class="lt-wk lt-this">' + (store.weeks[cur] ? ltCard(cur, " · 이번 주")
+    : "<span><b>이번 주 주제를 아직 고르지 않았어요</b><span>" + weekRange(cur) + " · 이번 주 탭에서 골라요</span></span>") + "</div></div>";
+  if (o.scope === "pick" && past.length) h += '<div class="lt-weeks">' + past.map(k => '<button class="lt-wk" data-lt-wk="' + k + '" aria-pressed="' + (o.wk === k) + '">' + ltCard(k) + "</button>").join("") + "</div>";
   h += '<div class="sec-t">속도</div><div class="seg" role="group" aria-label="속도">' +
     RATES.map(r => '<button data-rate="' + r + '" aria-pressed="' + (settings.rate === r) + '">' + rateLabel(r) + "</button>").join("") + "</div>";
+  h += '<div class="sec-t">듣기 방식</div><div class="seg" role="group" aria-label="듣기 방식">' +
+    [["flow", "끊지 않고 듣기"], ["one", "따라 말하기"]].map(([v, l]) => '<button data-lt-mode="' + v + '" aria-pressed="' + (o.mode === v) + '">' + l + "</button>").join("") + "</div>" +
+    '<p class="note lt-mode-n">' + (o.mode === "one" ? "문장이 끝날 때마다 그 문장 길이만큼 쉬어요. 쉬는 동안 따라 말해 보세요." : "문장을 끊지 않고 이어서 읽어요.") + "</p>";
+  if (o.mode === "one") h += '<div class="sec-t">반복 횟수</div><div class="seg" role="group" aria-label="반복 횟수">' +
+    DV_REPS.map(n => '<button data-lt-rep="' + n + '" aria-pressed="' + (o.rep === n) + '">' + n + "번</button>").join("") + "</div>" +
+    (o.rep > 1 ? '<p class="note lt-mode-n">문장마다 듣고 따라 말하기를 ' + o.rep + "번 반복한 뒤 다음 문장으로 가요. 질문은 한 번만 읽어요.</p>" : "");
+  if (o.scope === "pick" && !past.length) {
+    h += '<div class="lt-sum">지난 기록이 없어요.<br><span style="color:var(--muted);font-size:14px">다음 주부터 지난 주 일기를 골라 들을 수 있어요.</span></div>';
+    $("listenPage").innerHTML = h;
+    return;
+  }
   if (!pl.items.length) {
     h += '<div class="lt-sum">들을 문장이 없어요.<br><span style="color:var(--muted);font-size:14px">질문을 첨삭까지 끝내면(듣기 단계) 여기서 이어 들을 수 있어요.</span></div>';
     $("listenPage").innerHTML = h;
     return;
   }
-  h += '<div class="lt-sum">질문 <b>' + pl.blocks.length + "</b>개 · 문장 <b>" + (pl.items.length - pl.blocks.length) + "</b>개 · 약 <b>" + driveMinutes(pl, settings.rate) + "</b>분</div>";
+  h += '<div class="lt-sum">질문 <b>' + pl.blocks.length + "</b>개 · 문장 <b>" + (pl.items.length - pl.blocks.length) + "</b>개 · 약 <b>" + driveMinutes(pl, settings.rate, o.mode, o.rep) + "</b>분</div>";
   h += '<div class="lt-pre">' + preHtml(pl) + "</div>";
   h += '<div class="lt-foot">' + (ri >= 0
     ? '<div class="two"><button class="outline-btn" data-lt-start="0">처음부터</button><button class="go lt-go" data-lt-start="resume"><span class="lt-go-t">' + IC.play + '이어 듣기</span><span class="lt-resume">' + esc(DV.pos.label || "") + "</span></button></div>"
@@ -2410,6 +2450,8 @@ $("listenPage").addEventListener("click", e => {
   let b;
   if ((b = t.closest("[data-lt-scope]"))) { DV.opts.scope = b.dataset.ltScope; saveDrive(); LT.pre = null; buzz(); renderListen(); return; }
   if ((b = t.closest("[data-lt-wk]"))) { DV.opts.wk = b.dataset.ltWk; saveDrive(); LT.pre = null; buzz(); renderListen(); return; }
+  if ((b = t.closest("[data-lt-mode]"))) { DV.opts.mode = b.dataset.ltMode; saveDrive(); buzz(); renderListen(); return; }
+  if ((b = t.closest("[data-lt-rep]"))) { DV.opts.rep = +b.dataset.ltRep; saveDrive(); buzz(); renderListen(); return; }
   if ((b = t.closest("[data-rate]"))) { setRate(+b.dataset.rate); renderListen(); return; }
   if ((b = t.closest("[data-lt-pre]"))) {
     const a = b.dataset.ltPre;
@@ -2461,8 +2503,12 @@ function dvStart(resume) {
   DV.rd = createReader({
     items: () => DV.pl.items.map((x, j) => ({ get el() { return dvEl(j); } })),
     rate: () => settings.rate,
-    gap: j => (DV.pl.items[j + 1] && DV.pl.items[j + 1].kind === "q" ? DV_GAP_Q : DV_GAP),
-    onItem: j => { dvShow(j); dvSavePos(); dvMedia(); dvPrefetch(j); },
+    gap: j => dvGap(j),
+    tail: j => dvGap(j),
+    repeat: j => dvReps(j),
+    again: (j, r) => dvEcho(j, r, 0),
+    onRepeat: (j, r) => { DV.echo = false; DV.say = "다시 듣기 · " + r + " / " + dvReps(j); dvPaint(); },
+    onItem: j => { DV.echo = false; DV.say = ""; dvShow(j); dvSavePos(); dvMedia(); dvPrefetch(j); },
     onEnd: complete => { if (complete) { DV.done = true; DV.pos = null; saveDrive(); } dvPaint(); },
     onChange: dvPaint
   });
@@ -2506,12 +2552,49 @@ function dvNextQ() {
   if (b >= DV.pl.blocks.length) { toast("마지막 질문이에요"); return; }
   dvGo(DV.pl.blocks[b].start);
 }
+/* 이 문장을 몇 번 들을지: '따라 말하기'의 문장만 반복 횟수(1·3·5), 질문·끊지 않고 듣기는 한 번 */
+const dvReps = k => (DV.opts.mode === "one" && DV.pl.items[k].kind === "s" && DV_REPS.includes(DV.opts.rep) ? DV.opts.rep : 1);
+/* 문장 뒤 쉼(방금 끝난 번호 k). 마지막 문장 뒤(tail)는 0 — '따라 말하기'면 마지막 회차의 쉬는 시간 */
+function dvGap(k) {
+  const it = DV.pl.items[k], nx = DV.pl.items[k + 1];
+  const ms = !nx ? 0 : nx.kind === "q" ? DV_GAP_Q : DV_GAP;
+  if (DV.opts.mode !== "one" || it.kind === "q") return ms;                 // 끊지 않고 듣기 · 질문은 그대로
+  return dvEcho(k, dvReps(k), ms);
+}
+/* r번째 따라 말할 시간(되풀이 사이 또는 마지막). min = 적어도 이만큼 쉼(다음 문장·질문 앞 쉼) */
+function dvEcho(k, r, min) {
+  let len = Player.lastLength();                                             // 방금 문장을 끝까지 읽은 시간(초, 속도 반영)
+  if (!len) len = getScript(DV.pl.items[k].text).words.length * 0.38 / settings.rate;   // 못 쟀으면 단어 수로 어림
+  const echo = Math.round(Math.min(12, Math.max(1.2, len)) * 1000), n = dvReps(k);
+  return dvEchoWait(echo, Math.max(min, echo + 250), "따라 말해 보세요" + (n > 1 ? " · " + r + " / " + n : ""));
+}
+/* 따라 말할 시간: echo ms 동안 "따라 말해 보세요" 막대가 차오르고, 모두 total ms 쉼.
+   일시정지 중엔 시간이 안 감(다시 재생하면 막대가 남은 만큼부터), 다른 문장으로 옮기거나 닫으면 바로 그만둠(Player 토큰이 바뀜) */
+async function dvEchoWait(echo, total, label) {
+  const my = Player.getToken();
+  let gone = 0, shown = false;
+  while (gone < total) {
+    if (Player.getToken() !== my || !DV.open) return;
+    if (Player.isPaused()) { shown = false; await sleep(150); continue; }
+    if (!shown || !DV.echo) { dvEchoBar(echo, gone, label); shown = true; }
+    const t0 = performance.now();
+    await sleep(Math.min(200, total - gone));
+    if (!Player.isPaused()) gone += performance.now() - t0;               // 실제로 흐른 시간만큼(타이머가 늦게 와도 맞게)
+  }
+}
+function dvEchoBar(echo, gone, label) {
+  DV.echo = true;
+  DVU.note.innerHTML = '<span class="dv-echo"><span>' + esc(label || "따라 말해 보세요") + '</span><i aria-hidden="true"><b style="animation-duration:' + echo + "ms;animation-delay:-" + Math.round(Math.min(gone, echo)) + 'ms"></b></i></span>';
+}
 function dvPaint() {
   if (!DV.open || !DV.rd) return;
   const s = DV.rd.state(), playing = s.active && !s.paused;
   DVU.toggle.innerHTML = (playing ? IC.pause : IC.play) + "<span>" + (playing ? "일시정지" : DV.done ? "처음부터" : "재생") + "</span>";
   DVU.toggle.setAttribute("aria-label", playing ? "일시정지" : "재생");
-  DVU.note.textContent = DV.done ? "끝까지 다 들었어요" : playing ? "" : DV.interrupted ? "소리가 끊겨서 멈췄어요 · 재생을 누르면 이 문장부터" : "일시정지";
+  if (!(DV.echo && playing)) {                                               // '따라 말해 보세요' 중이 아니면 상태 글
+    DV.echo = false;
+    DVU.note.textContent = DV.done ? "끝까지 다 들었어요" : playing ? DV.say : DV.interrupted ? "소리가 끊겨서 멈췄어요 · 재생을 누르면 이 문장부터" : "일시정지";
+  }
   dvKeepAlive(playing);
   try { if (navigator.mediaSession) navigator.mediaSession.playbackState = playing ? "playing" : "paused"; } catch (e) {}
 }
