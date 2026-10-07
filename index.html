@@ -253,7 +253,7 @@
   .ls-play{ flex:1; display:flex; align-items:center; justify-content:center; gap:7px; min-height:48px; padding:0 14px; border-radius:14px; border:1.5px solid var(--accent-line); background:var(--accent-soft); color:var(--accent); font-size:16px; font-weight:700; }
   .ls-play svg{ width:18px; height:18px; }
   .rate-seg{ flex:none; }
-  .rate-seg button{ min-width:52px; min-height:44px; font-size:14.5px; padding:0 4px; }
+  .rate-seg button{ min-width:46px; min-height:44px; font-size:14px; padding:0 3px; }
   .ls-row{ align-items:flex-start; transition:border-color .2s ease, background .2s ease; }
   .ls-row.cur{ border-color:var(--accent); background:var(--accent-soft); }
   .ls-row .pe{ font-size:18px; font-weight:600; }
@@ -328,6 +328,16 @@
   .dv-en{ font-size:calc(25px * var(--tz)); font-weight:700; line-height:1.45; }
   .dv-cur.q .dv-en{ font-size:calc(21px * var(--tz)); color:var(--text-2); }
   .dv-ko{ margin-top:8px; font-size:calc(16px * var(--tz)); line-height:1.5; color:var(--muted); }
+  /* 끊지 않고 듣기: 질문 하나를 글로(문단마다 영어 + 아래 한국어, 사이 구분선). 지금 읽는 칸만 진하게 */
+  .dv-stage.para{ justify-content:flex-start; }
+  .dv-sec{ padding:16px 0; border-top:1px solid var(--line); }
+  .dv-sec:first-child{ border-top:0; padding-top:4px; }
+  .dv-sec .dv-en{ font-size:calc(20px * var(--tz)); font-weight:600; line-height:1.55; color:var(--faint); }
+  .dv-sec.q .dv-en{ font-size:calc(17px * var(--tz)); }
+  .dv-sec .dv-ko{ font-size:calc(15px * var(--tz)); color:var(--faint); }
+  .dv-sec.on .dv-en{ color:var(--text); }
+  .dv-sec.on .dv-ko{ color:var(--muted); }
+  .dv-sec:not(.on) .dv-k{ background:var(--bg-3); color:var(--muted); }
   .dv-note{ flex:none; min-height:24px; margin:0; padding:0 var(--pad); text-align:center; font-size:14px; color:var(--muted); }
   .dv-echo{ display:inline-flex; align-items:center; gap:10px; color:var(--accent); font-weight:650; font-size:15px; }
   .dv-echo i{ display:block; width:120px; height:6px; border-radius:3px; background:var(--accent-soft); outline:1px solid var(--line); overflow:hidden; }
@@ -593,7 +603,7 @@ const EL_MODELS = [
   { id: "eleven_v4", name: "Eleven v4 · 가장 자연스러움 (추천)" },
   { id: "eleven_flash_v2_5", name: "Flash v2.5 · 빠르고 크레딧 절약" }
 ];
-const RATES = [0.8, 0.9, 1];
+const RATES = [0.8, 1, 1.2, 1.5];                                            // 2026-10-08 0.9x 빼고 1.2x·1.5x 넣음(예전에 0.9x가 저장돼 있으면 아래에서 1.0x로)
 const SETTINGS_KEY = "ediary.settings.v1";
 const TEXT_ZOOMS = [1, 1.25, 1.5, 1.8];                                     // 글자 크기: 기본 / 크게 / 더 크게 / 아주 크게(한 장 영어와 같은 단계)
 const DEFAULTS = { apiKey: "", voice: "iP95p4xoKVk53GoZ742B", model: "eleven_v4", rate: 1, textZoom: 1 };
@@ -604,7 +614,7 @@ const settings = (() => {
     if (typeof m.apiKey !== "string") m.apiKey = "";
     if (!EL_VOICES.some(v => v.id === m.voice)) m.voice = DEFAULTS.voice;
     if (!EL_MODELS.some(v => v.id === m.model)) m.model = DEFAULTS.model;
-    if (!RATES.includes(m.rate)) m.rate = 1;
+    if (!RATES.includes(m.rate)) m.rate = 1;                                   // 목록에 없는 속도(예전 0.9x 등) → 1.0x
     if (!TEXT_ZOOMS.includes(m.textZoom)) m.textZoom = 1;
     return m;
   } catch (e) { return Object.assign({}, DEFAULTS); }
@@ -822,7 +832,7 @@ const Player = (() => {
     if (!audioCtl) return;
     try { audio.defaultPlaybackRate = rate; audio.playbackRate = rate; } catch (e) {}
   }
-  /* 지금 시간(초)에 읽는 단어 — audio.currentTime 기준이라 0.8x·1.0x 모두 맞음 */
+  /* 지금 시간(초)에 읽는 단어 — audio.currentTime 기준이라 0.8x~1.5x 모두 맞음 */
   function wordAtTime(times, t) {
     let lo = 0, hi = times.length - 1, k = -1;
     while (lo <= hi) { const mid = (lo + hi) >> 1; if (times[mid].s <= t + 0.03) { k = mid; lo = mid + 1; } else hi = mid - 1; }
@@ -1107,7 +1117,7 @@ function paintWord(el, k) {
 }
 /* 강조된 단어가 화면 밖으로 나가려 하면 부드럽게 따라 스크롤 */
 function keepInView(w) {
-  const box = w.closest(".f-body");
+  const box = w.closest(".f-body, .dv-stage");                               // 듣기 단계·암송 · 듣기 탭 문단 화면
   if (!box || !w.getClientRects().length) return;
   const r = w.getBoundingClientRect(), b = box.getBoundingClientRect();
   if (r.top < b.top + 12 || r.bottom > b.bottom - 48) {
@@ -1390,8 +1400,55 @@ function applyPaste(it, text) {
   it.flow = r.flow;
   it.keywords = r.keywords;
   it.conds = r.conds;
+  it.paraWant = true;                                                       // 새 답변 → 듣기 단계에서 음성을 만들 때 문단 음성도 같이(paraEnsure)
   save();
   return true;
+}
+
+/* ---------- 문단 (듣기 탭 '끊지 않고 듣기') ----------
+   최종본 문장들을 문단으로 묶음. 문단 구분 = 내가 쓴 원래 글(it.text)의 빈 줄.
+   원래 글의 문단마다 단어 집합을 만들고, 최종본 문장을 순서대로(앞 문단 → 뒤 문단, 문단마다 1문장 이상) 가장 잘 맞는 문단에 붙임.
+   원래 글이 한 문단이거나, 문단 수가 문장 수보다 많거나, 맞는 단어가 너무 적으면(평균 50% 미만) 한 문단으로.
+   paraList(it) → [{ en: 문단 영어(문장을 띄어쓰기로 이음), ko: 문단 한국어, idx: [문장 번호] }] — 문장 번호 = 영어가 있는 짝의 순서 */
+const PARA_MATCH = 0.5;
+const enWords = s => String(s || "").toLowerCase().match(/[a-z][a-z']*/g) || [];
+function paraGroups(it) {
+  const ps = (it.pairs || []).filter(p => p.en), n = ps.length;
+  const one = [ps.map((p, i) => i)];
+  if (n < 2) return one;
+  const paras = String(it.text || "").split(/\n[ \t　]*\n/).map(s => s.trim()).filter(s => enWords(s).length);
+  const P = paras.length;
+  if (P < 2 || P > n) return one;
+  const sets = paras.map(p => new Set(enWords(p)));
+  const df = new Map();
+  sets.forEach(s => s.forEach(w => df.set(w, (df.get(w) || 0) + 1)));
+  const ws = ps.map(p => enWords(p.en));
+  /* 점수 = 그 문단에만 있는 단어일수록 크게(여러 문단에 다 있는 단어는 1/문단 수) */
+  const score = ws.map(list => sets.map(s => list.length ? list.reduce((a, w) => a + (s.has(w) ? 1 / df.get(w) : 0), 0) / list.length : 0));
+  const NEG = -1e9, dp = ws.map(() => new Array(P).fill(NEG)), from = ws.map(() => new Array(P).fill(0));
+  dp[0][0] = score[0][0];
+  for (let i = 1; i < n; i++) for (let p = 0; p < P; p++) {
+    const stay = dp[i - 1][p], step = p ? dp[i - 1][p - 1] : NEG;
+    if (stay === NEG && step === NEG) continue;
+    dp[i][p] = score[i][p] + Math.max(stay, step);
+    from[i][p] = step > stay ? p - 1 : p;
+  }
+  if (dp[n - 1][P - 1] === NEG) return one;
+  const at = new Array(n);
+  for (let i = n - 1, p = P - 1; i >= 0; i--) { at[i] = p; p = from[i][p]; }
+  const hit = ws.reduce((a, list, i) => a + (list.length ? list.filter(w => sets[at[i]].has(w)).length / list.length : 1), 0) / n;
+  if (hit < PARA_MATCH) return one;                                          // 맞추기 어려우면 한 문단
+  const groups = [];
+  at.forEach((p, i) => { (groups[p] = groups[p] || []).push(i); });
+  return groups;
+}
+function paraList(it) {
+  const ps = (it.pairs || []).filter(p => p.en);
+  return paraGroups(it).map(idx => ({
+    en: idx.map(i => ps[i].en.trim()).join(" "),
+    ko: idx.map(i => (ps[i].ko || "").trim()).filter(Boolean).join(" "),
+    idx
+  }));
 }
 
 /* =====================================================================
@@ -1853,6 +1910,22 @@ function warmAct(it, act) {
   }
 }
 
+/* 새 답변(첨삭 붙여넣기 뒤 it.paraWant)의 문단 음성을 저장 안 된 것만 뒤에서 만들어 둠 — 듣기 단계에서 문장 음성을 들을 때.
+   키가 없거나 인터넷이 없으면 안 함. 다 만들면 paraWant를 지움(최종본을 다시 붙여넣으면 바뀐 문단만 새로 — 음성 키가 문단 글이라서) */
+const PARA_BUSY = new Set();
+async function paraEnsure(it) {
+  if (!settings.apiKey || navigator.onLine === false || PARA_BUSY.has(it)) return;
+  PARA_BUSY.add(it);
+  let ok = true;
+  try {
+    for (const p of paraList(it)) {
+      const t = getScript(p.en).speech;
+      if (await Player.isCached(t)) continue;
+      try { await Player.fetchClip(t); } catch (e) { ok = false; break; }   // 실패하면 다음에 다시(키 오류·크레딧 부족이면 더 안 함)
+    }
+  } finally { PARA_BUSY.delete(it); }
+  if (ok && it.paraWant) { delete it.paraWant; saveSoon(); }
+}
 /* ---------- 듣기 단계 (2단계): 최종본 문장마다 노래방식 ----------
    [전체 듣기]는 1번부터 끝까지 이어서(문장 사이 0.45초), 문장 옆 스피커는 그 문장만(다시 누르면 멈춤),
    단어를 누르면 그 단어부터(이어 듣는 중이면 거기서부터 계속, 아니면 그 문장만). 속도는 설정과 같은 값.
@@ -1875,6 +1948,8 @@ function setupListen() {
     gap: 450,
     onItem: i => {
       mark(i);
+      const w = fWeek(), it = w && itemOf(w, F.qid);
+      if (it && it.paraWant) paraEnsure(it);                                  // 새 답변의 음성을 만들 때 문단 음성도 같이
       const r = rows()[i];
       if (r) {                                                                // 그 문장이 보이게
         const b = FL.body.getBoundingClientRect(), rr = r.getBoundingClientRect();
@@ -2155,13 +2230,21 @@ function reviewState(w) {
   const sig = String(hashStr(deck.map(([qid, i]) => w.items[qid].pairs[i].en).join("\n")));
   const rv = w.review;
   if (rv && (rv.sig === sig || rv.doneOn) && Array.isArray(rv.deck)) return rv;
-  /* 섞기: 같은 질문 문장이 되도록 연달아 나오지 않게(바로 앞과 다른 질문 중에서 무작위, 없으면 아무거나) */
-  const left = deck.map((_, k) => k), q = [];
+  /* 섞기: 같은 질문 문장이 되도록 연달아 나오지 않게(바로 앞과 다른 질문 중에서 무작위, 없으면 아무거나).
+     고른 뒤에도 남은 문장을 연달아 없이 놓을 수 있는 것만 고름(2026-10-08 — 그냥 고르면 끝에 같은 질문이 몰려 가끔 연달아 나옴) */
+  const left = deck.map((_, k) => k), q = [], cnt = {};
+  deck.forEach(d => { cnt[d[0]] = (cnt[d[0]] || 0) + 1; });
+  const canRest = k => {                                                     // k를 고른 뒤 남은 rest개: 고른 질문은 홀수 자리만(floor), 다른 질문은 ceil
+    const x = deck[k][0], rest = left.length - 1;
+    return Object.keys(cnt).every(y => (y === x ? cnt[y] - 1 <= Math.floor(rest / 2) : cnt[y] <= Math.ceil(rest / 2)));
+  };
   while (left.length) {
     const prevQ = q.length ? deck[q[q.length - 1]][0] : null;
-    const pool = left.filter(k => deck[k][0] !== prevQ);
-    const pick = (pool.length ? pool : left)[Math.floor(Math.random() * (pool.length || left.length))];
+    const diff = left.filter(k => deck[k][0] !== prevQ), safe = diff.filter(canRest);
+    const pool = safe.length ? safe : diff.length ? diff : left;
+    const pick = pool[Math.floor(Math.random() * pool.length)];
     q.push(pick);
+    cnt[deck[pick][0]]--;
     left.splice(left.indexOf(pick), 1);
   }
   const cq = [...new Set(deck.map(d => d[0]))].filter(qid => (w.items[qid].conds || []).length);
@@ -2284,8 +2367,10 @@ $("logPage").addEventListener("click", e => {
 /* =====================================================================
    듣기 탭 (4단계 — 한 장 영어 드라이브 모드를 일기 전용으로 줄임)
    시작 화면(탭 첫 화면): 범위 [이번 주 | 지난 주 | 전체] · 속도 · 들을 분량 · 미리 받아두기 · [시작] / [처음부터][이어 듣기]
-   재생 화면(#drive, 탭 바를 덮음): 질문(영어, 한글 작게) → 그 질문의 최종본 문장들 → 다음 질문 … 끝까지 이어서.
-     문장 사이 0.45초, 새 질문 앞 1.2초. 큰 버튼 [이전 문장][재생/일시정지][다음 문장] + [다음 질문].
+   재생 화면(#drive, 탭 바를 덮음): 질문(영어, 한글 작게) → 그 질문의 최종본 → 다음 질문 … 끝까지 이어서.
+     끊지 않고 듣기(2026-10-08) = 문단마다 음성 하나(paraList — 원래 글의 빈 줄로 문단을 나눔, ElevenLabs로 문단을 통째로 만들어 저장).
+       화면은 질문 하나를 글로(질문 → 문단마다 영어 + 아래 한국어, 사이 구분선, 지금 문단 노래방식 — dvShowBlock). 질문 → 문단 0.45초, 문단 사이 0.7초.
+     따라 말하기 = 문장마다(문장 사이 0.45초 + 따라 말할 시간). 새 질문 앞 1.2초. 큰 버튼 [이전][재생/일시정지][다음](문단/문장) + [다음 질문].
      잠금화면·블루투스·차: 재생/일시정지 · 다음/이전 = 다음/이전 문장(Media Session) — 짧은 소리만으로는 폰이 조작을 붙여 주지 않아서
      재생하는 동안 조용한 소리(44.1kHz·16비트, 6초 반복)를 틀어 둠(한 장 영어와 같은 방식).
    문장 = 첨삭을 저장한(듣기 단계까지 간) 질문의 최종본 영어. 범위 '전체'는 최신 주부터.
@@ -2307,7 +2392,7 @@ const DV = (() => {
     open: false, pl: null, idx: 0, done: false, interrupted: false, rd: null, els: [], ka: null, kaSelf: false, kaWant: false, kaT: 0, pre: null, echo: false, say: "" };
 })();
 function saveDrive() { try { localStorage.setItem(DRIVE_KEY, JSON.stringify({ opts: DV.opts, pos: DV.pos })); } catch (e) {} }
-const DV_GAP = 450, DV_GAP_Q = 1200;
+const DV_GAP = 450, DV_GAP_Q = 1200, DV_GAP_P = 700;   // 문장·질문 → 다음 · 새 질문 앞 · 문단 사이(끊지 않고 듣기)
 function weekTitle(wk) { const w = store.weeks[wk], t = w && TOPIC_BY_ID[w.topic]; return t ? t.emoji + " " + t.ko : "📝 " + (w ? w.topic : ""); }
 /* 범위에 들어가는 주(최신이 앞) */
 function driveWeeks(o) {
@@ -2316,8 +2401,30 @@ function driveWeeks(o) {
   return Object.keys(store.weeks).sort().reverse();
 }
 const scopeKey = o => o.scope + (o.scope === "pick" ? ":" + (o.wk || "") : "");
-/* 재생 목록: 질문마다 { kind: q, 질문 영어 } + { kind: s, 문장 }. 블록 = 질문 하나 */
+/* 재생 목록: 질문마다 { kind: q, 질문 영어 } + 따라 말하기면 { kind: s, 문장 }, 끊지 않고 듣기면 { kind: p, 문단(음성 하나) }. 블록 = 질문 하나 */
 function buildDrive(o) {
+  if (o.mode !== "one") return buildDriveParas(o);
+  return buildDriveSents(o);
+}
+function buildDriveParas(o) {
+  const items = [], blocks = [];
+  driveWeeks(o).forEach(wk => {
+    const w = store.weeks[wk];
+    if (!w) return;
+    w.qs.forEach((qid, qi) => {
+      const it = w.items[qid], q = Q_BY_ID[qid];
+      if (!it || !q || stepIdx(it) < 2) return;
+      const pa = paraList(it);
+      if (!pa[0] || !pa[0].idx.length) return;
+      blocks.push({ start: items.length, wk, qid, n: qi + 1 });
+      const b = blocks.length - 1;
+      items.push({ kind: "q", text: q.en, ko: q.ko, wk, qid, n: qi + 1, b, key: wk + "|" + qid + "|-1" });
+      pa.forEach((p, j) => items.push({ kind: "p", text: p.en, ko: p.ko, wk, qid, n: qi + 1, b, j, total: pa.length, sents: p.idx, key: wk + "|" + qid + "|p" + j }));
+    });
+  });
+  return { items, blocks };
+}
+function buildDriveSents(o) {
   const items = [], blocks = [];
   driveWeeks(o).forEach(wk => {
     const w = store.weeks[wk];
@@ -2350,8 +2457,19 @@ function dvResumeIdx(pl) {
   if (!p || p.scope !== scopeKey(DV.opts)) return -1;
   const k = pl.items.findIndex(it => it.key === p.key);
   if (k >= 0) return k;
-  const [wk, qid] = p.key.split("|"), b = pl.blocks.find(x => x.wk === wk && x.qid === qid);   // 그 문장이 없어졌으면 그 질문 처음
-  return b ? b.start : -1;
+  const [wk, qid, part] = p.key.split("|"), b = pl.blocks.find(x => x.wk === wk && x.qid === qid);
+  if (!b) return -1;
+  const inQ = pl.items.map((it, j) => [it, j]).filter(([it]) => it.b === pl.blocks.indexOf(b));
+  if (/^\d+$/.test(part || "")) {                                            // 문장 위치 → 끊지 않고 듣기에선 그 문장이 든 문단
+    const m = inQ.find(([it]) => it.kind === "p" && it.sents.includes(+part));
+    if (m) return m[1];
+  } else if (/^p\d+$/.test(part || "")) {                                    // 문단 위치 → 따라 말하기에선 그 문단의 첫 문장
+    const src = store.weeks[wk] && store.weeks[wk].items[qid], pa = src ? paraList(src) : [];
+    const first = pa[+part.slice(1)] ? pa[+part.slice(1)].idx[0] : -1;
+    const m = inQ.find(([x]) => x.kind === "s" && x.i === first);
+    if (m) return m[1];
+  }
+  return b.start;                                                            // 그 문장이 없어졌으면 그 질문 처음
 }
 
 /* ---- 시작 화면 ---- */
@@ -2374,7 +2492,7 @@ function renderListen() {
     RATES.map(r => '<button data-rate="' + r + '" aria-pressed="' + (settings.rate === r) + '">' + rateLabel(r) + "</button>").join("") + "</div>";
   h += '<div class="sec-t">듣기 방식</div><div class="seg" role="group" aria-label="듣기 방식">' +
     [["flow", "끊지 않고 듣기"], ["one", "따라 말하기"]].map(([v, l]) => '<button data-lt-mode="' + v + '" aria-pressed="' + (o.mode === v) + '">' + l + "</button>").join("") + "</div>" +
-    '<p class="note lt-mode-n">' + (o.mode === "one" ? "문장이 끝날 때마다 그 문장 길이만큼 쉬어요. 쉬는 동안 따라 말해 보세요." : "문장을 끊지 않고 이어서 읽어요.") + "</p>";
+    '<p class="note lt-mode-n">' + (o.mode === "one" ? "문장이 끝날 때마다 그 문장 길이만큼 쉬어요. 쉬는 동안 따라 말해 보세요." : "질문을 읽고, 내 글을 문단마다 끊지 않고 이어서 읽어요.") + "</p>";
   if (o.mode === "one") h += '<div class="sec-t">반복 횟수</div><div class="seg" role="group" aria-label="반복 횟수">' +
     DV_REPS.map(n => '<button data-lt-rep="' + n + '" aria-pressed="' + (o.rep === n) + '">' + n + "번</button>").join("") + "</div>" +
     (o.rep > 1 ? '<p class="note lt-mode-n">문장마다 듣고 따라 말하기를 ' + o.rep + "번 반복한 뒤 다음 문장으로 가요. 질문은 한 번만 읽어요.</p>" : "");
@@ -2388,7 +2506,8 @@ function renderListen() {
     $("listenPage").innerHTML = h;
     return;
   }
-  h += '<div class="lt-sum">질문 <b>' + pl.blocks.length + "</b>개 · 문장 <b>" + (pl.items.length - pl.blocks.length) + "</b>개 · 약 <b>" + driveMinutes(pl, settings.rate, o.mode, o.rep) + "</b>분</div>";
+  const nSent = pl.items.reduce((a, x) => a + (x.kind === "s" ? 1 : x.kind === "p" ? x.sents.length : 0), 0), nPara = pl.items.filter(x => x.kind === "p").length;
+  h += '<div class="lt-sum">질문 <b>' + pl.blocks.length + "</b>개 · 문장 <b>" + nSent + "</b>개" + (o.mode === "one" ? "" : "(문단 <b>" + nPara + "</b>개)") + " · 약 <b>" + driveMinutes(pl, settings.rate, o.mode, o.rep) + "</b>분</div>";
   h += '<div class="lt-pre">' + preHtml(pl) + "</div>";
   h += '<div class="lt-foot">' + (ri >= 0
     ? '<div class="two"><button class="outline-btn" data-lt-start="0">처음부터</button><button class="go lt-go" data-lt-start="resume"><span class="lt-go-t">' + IC.play + '이어 듣기</span><span class="lt-resume">' + esc(DV.pos.label || "") + "</span></button></div>"
@@ -2402,23 +2521,24 @@ function preHtml(pl) {
   if (!P) return '<button class="outline-btn" data-lt-pre="count">미리 받아두기 · 출발 전에</button>';
   if (P.state === "count") return '<p class="note">저장된 음성을 세는 중…</p>';
   if (P.state === "ready") return P.need.length
-    ? '<p class="note" style="margin-top:0">새로 만들 문장 <b>' + P.need.length + "</b>개 · 약 " + P.chars + "자(이미 저장된 문장 " + P.have + "개)</p>" +
+    ? '<p class="note" style="margin-top:0">새로 만들 문장 <b>' + (P.need.length - P.nPara) + "</b>개 · 문단 <b>" + P.nPara + "</b>개 · 약 " + P.chars + "자(이미 저장된 음성 " + P.have + "개)</p>" +
       '<button class="outline-btn" data-lt-pre="run">만들기</button>'
-    : '<p class="note">이 범위의 문장은 모두 폰에 저장돼 있어요. 인터넷 없이도 들을 수 있어요.</p>';
+    : '<p class="note">이 범위의 문장·문단은 모두 폰에 저장돼 있어요. 인터넷 없이도 들을 수 있어요.</p>';
   if (P.state === "run") return '<p class="note" style="margin-top:0">만드는 중 ' + P.done + " / " + P.need.length + '</p><div class="pbar"><i style="width:' + Math.round(P.done / P.need.length * 100) + '%"></i></div>' +
     '<button class="outline-btn" data-lt-pre="cancel">취소</button>';
   return '<p class="note">' + (P.stopped ? "멈췄어요 · " + P.stopped : "다 받아 뒀어요") + " — " + P.done + "개 만듦" + (P.fail ? " · 실패 " + P.fail + "개" : "") + "</p>";
 }
+/* 셀 것 = 질문 + 문장(따라 말하기) + 문단(끊지 않고 듣기) — 어느 방식으로 들어도 끊기지 않게. 문장 하나짜리 문단은 그 문장 음성과 같음 */
 async function preCount() {
-  const pl = buildDrive(DV.opts), sk = scopeKey(DV.opts);
-  const P = LT.pre = { scope: sk, state: "count", need: [], chars: 0, have: 0, done: 0, fail: 0 };
+  const sk = scopeKey(DV.opts), sents = buildDriveSents(DV.opts).items, paras = buildDriveParas(DV.opts).items.filter(x => x.kind === "p");
+  const P = LT.pre = { scope: sk, state: "count", need: [], nPara: 0, chars: 0, have: 0, done: 0, fail: 0 };
   renderListen();
   const seen = new Set();
-  for (const it of pl.items) {
+  for (const it of sents.concat(paras)) {
     const t = getScript(it.text).speech;
     if (seen.has(t)) continue;
     seen.add(t);
-    if (await Player.isCached(t)) P.have++; else { P.need.push(t); P.chars += t.length; }
+    if (await Player.isCached(t)) P.have++; else { P.need.push(t); P.chars += t.length; if (it.kind === "p") P.nPara++; }
     if (LT.pre !== P) return;
   }
   P.state = "ready";
@@ -2469,9 +2589,39 @@ function dvEl(k) {                                                            //
   if (!DV.els[k]) { const d = document.createElement("div"); d.className = "dv-en"; d.lang = "en"; d.innerHTML = scriptHtml(DV.pl.items[k].text); DV.els[k] = d; }
   return DV.els[k].querySelector(".sc");
 }
+const dvUnit = (it, sep) => (it.kind === "q" ? "질문" : (it.kind === "p" ? "문단 " + (it.j + 1) : "문장 " + (it.i + 1)) + sep + it.total);
 function dvLabels(k) {
   const it = DV.pl.items[k], wkLabel = DV.opts.scope === "week" ? "" : " · " + weekRange(it.wk);
-  return [weekTitle(it.wk) + " · 질문 " + it.n + wkLabel, (it.kind === "q" ? "질문" : "문장 " + (it.i + 1) + " / " + it.total) + " · " + (it.b + 1) + " / " + DV.pl.blocks.length + "번째 질문"];
+  return [weekTitle(it.wk) + " · 질문 " + it.n + wkLabel, dvUnit(it, " / ") + " · " + (it.b + 1) + " / " + DV.pl.blocks.length + "번째 질문"];
+}
+/* 끊지 않고 듣기: 질문 하나를 글로 — 질문 → 문단마다 영어(노래방식) + 그 아래 한국어, 문단 사이 구분선. 지금 읽는 칸(.on)만 진하게 */
+function dvShowBlock(k) {
+  const pl = DV.pl, it = pl.items[k], stage = $("dvStage");
+  stage.classList.add("para");
+  DVU.prev.innerHTML = ""; DVU.next.innerHTML = "";
+  if (DVU.cur.dataset.blk !== String(it.b)) {
+    DVU.cur.dataset.blk = String(it.b);
+    DVU.cur.className = "dv-line dv-cur dv-blk";
+    DVU.cur.innerHTML = "";
+    pl.items.forEach((x, j) => {
+      if (x.b !== it.b) return;
+      const sec = document.createElement("section");
+      sec.className = "dv-sec" + (x.kind === "q" ? " q" : "");
+      sec.dataset.k = String(j);
+      sec.innerHTML = '<span class="dv-k' + (x.kind === "q" ? " q" : "") + '">' + (x.kind === "q" ? "질문 " + x.n : "문단 " + (x.j + 1)) + "</span>";
+      dvEl(j);
+      sec.appendChild(DV.els[j]);
+      if (x.ko) sec.insertAdjacentHTML("beforeend", '<div class="dv-ko">' + esc(x.ko) + "</div>");
+      DVU.cur.appendChild(sec);
+    });
+    stage.scrollTop = 0;
+  }
+  let on = null;
+  DVU.cur.querySelectorAll(".dv-sec").forEach(s => { const m = +s.dataset.k === k; s.classList.toggle("on", m); if (m) on = s; });
+  if (on && k !== pl.blocks[it.b].start) {                                   // 새 문단이 위쪽에 오게
+    const top = stage.scrollTop + on.getBoundingClientRect().top - stage.getBoundingClientRect().top - 8;
+    stage.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+  }
 }
 function dvShow(k) {
   const pl = DV.pl, it = pl.items[k];
@@ -2479,6 +2629,9 @@ function dvShow(k) {
   const [a, b] = dvLabels(k);
   DVU.pos1.textContent = a;
   DVU.pos2.textContent = b;
+  if (DV.opts.mode !== "one") { dvShowBlock(k); return; }
+  $("dvStage").classList.remove("para");
+  delete DVU.cur.dataset.blk;
   const line = j => { const x = pl.items[j]; return x ? esc(x.text) : ""; };
   DVU.prev.innerHTML = line(k - 1);
   DVU.next.innerHTML = line(k + 1);
@@ -2492,13 +2645,16 @@ function dvShow(k) {
 function dvSavePos() {
   if (!DV.pl || DV.done || !DV.pl.items[DV.idx]) return;
   const it = DV.pl.items[DV.idx];
-  DV.pos = { scope: scopeKey(DV.opts), key: it.key, label: weekTitle(it.wk).split(" ").slice(1).join(" ") + " · 질문 " + it.n + " · " + (it.kind === "q" ? "질문" : "문장 " + (it.i + 1) + "/" + it.total) };
+  DV.pos = { scope: scopeKey(DV.opts), key: it.key, label: weekTitle(it.wk).split(" ").slice(1).join(" ") + " · 질문 " + it.n + " · " + dvUnit(it, "/") };
   saveDrive();
 }
 function dvStart(resume) {
   const pl = buildDrive(DV.opts);
   if (!pl.items.length) { toast("들을 문장이 없어요"); return; }
   DV.pl = pl; DV.els = []; DV.done = false; DV.interrupted = false;
+  delete DVU.cur.dataset.blk;
+  const unit = DV.opts.mode === "one" ? "문장" : "문단";                    // 끊지 않고 듣기에선 이전·다음 = 문단
+  [["dvPrevB", "이전 "], ["dvNextB", "다음 "]].forEach(([id, l]) => { $(id).setAttribute("aria-label", l + unit); $(id).querySelector("span").textContent = l + unit; });
   const k = resume ? Math.max(0, dvResumeIdx(pl)) : 0;
   DV.rd = createReader({
     items: () => DV.pl.items.map((x, j) => ({ get el() { return dvEl(j); } })),
@@ -2544,7 +2700,7 @@ function dvToggle() {
 function dvStep(d) {
   const k = DV.idx + d;
   if (k < 0) { dvGo(0); return; }
-  if (k >= DV.pl.items.length) { toast("마지막 문장이에요"); return; }
+  if (k >= DV.pl.items.length) { toast(DV.opts.mode === "one" ? "마지막 문장이에요" : "마지막 문단이에요"); return; }
   dvGo(k);
 }
 function dvNextQ() {
@@ -2557,8 +2713,8 @@ const dvReps = k => (DV.opts.mode === "one" && DV.pl.items[k].kind === "s" && DV
 /* 문장 뒤 쉼(방금 끝난 번호 k). 마지막 문장 뒤(tail)는 0 — '따라 말하기'면 마지막 회차의 쉬는 시간 */
 function dvGap(k) {
   const it = DV.pl.items[k], nx = DV.pl.items[k + 1];
-  const ms = !nx ? 0 : nx.kind === "q" ? DV_GAP_Q : DV_GAP;
-  if (DV.opts.mode !== "one" || it.kind === "q") return ms;                 // 끊지 않고 듣기 · 질문은 그대로
+  const ms = !nx ? 0 : nx.kind === "q" ? DV_GAP_Q : it.kind === "p" ? DV_GAP_P : DV_GAP;
+  if (DV.opts.mode !== "one" || it.kind === "q") return ms;                 // 끊지 않고 듣기(문단 사이만 짧게) · 질문은 그대로
   return dvEcho(k, dvReps(k), ms);
 }
 /* r번째 따라 말할 시간(되풀이 사이 또는 마지막). min = 적어도 이만큼 쉼(다음 문장·질문 앞 쉼) */
@@ -2619,7 +2775,8 @@ function dvMedia() {
   if (!ms || !DV.pl) return;
   try {
     const it = DV.pl.items[DV.idx], [a, b] = dvLabels(DV.idx);
-    ms.metadata = new MediaMetadata({ title: getScript(it.text).speech, artist: a + " · " + b, album: "영어일기 · 듣기" });
+    const t = getScript(it.text).speech;                                     // 문단은 길어서 앞부분만
+    ms.metadata = new MediaMetadata({ title: t.length > 90 ? t.slice(0, 88).replace(/\s+\S*$/, "") + " …" : t, artist: a + " · " + b, album: "영어일기 · 듣기" });
   } catch (e) {}
 }
 function dvMediaHandlers(on) {
