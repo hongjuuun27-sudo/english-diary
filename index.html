@@ -3,7 +3,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-ZkPhm/XIG0OfmacgETrxegJVz1EaAsguMgwEdMCZzuk='; style-src 'unsafe-inline'; connect-src 'self' https://api.elevenlabs.io; media-src blob:; img-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-oLbmAINQu3F7DZN057+6dnEuaHXm2CT240s0KKSq3MY='; style-src 'unsafe-inline'; connect-src 'self' https://api.elevenlabs.io; media-src blob:; img-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#121417" media="(prefers-color-scheme: dark)">
@@ -237,6 +237,10 @@
   .lg-q h3{ margin:0; font-size:15px; font-weight:700; line-height:1.45; }
   .lg-q .st-l{ font-size:12.5px; color:var(--faint); font-weight:600; }
   .lg-q p{ margin:6px 0 0; font-size:15px; line-height:1.55; color:var(--text-2); }
+  .lg-x{ margin-top:8px; padding-left:10px; border-left:2px dashed var(--faint); }
+  .lg-xt{ font-size:12.5px; font-weight:700; color:var(--faint); }
+  .lg-x p{ margin:4px 0 0; font-size:14.5px; }
+  .lg-x p span{ display:block; font-size:13.5px; color:var(--muted); }
   .empty-t{ margin:40px 0; text-align:center; color:var(--faint); font-size:15px; line-height:1.7; }
 
   /* ---------- 노래방 강조 (한 장 영어와 같음): .sc(문장) > .w(단어). 재생하면 문장이 흐려지고 읽은 단어·지금 단어가 채워짐.
@@ -264,6 +268,12 @@
   .spk{ flex:none; width:44px; height:44px; margin:-8px -6px -8px 0; border-radius:12px; display:flex; align-items:center; justify-content:center; color:var(--muted); }
   .spk svg{ width:21px; height:21px; }
   .spk.playing{ color:var(--accent); }
+  /* 더 말하고 싶을 때(최종본 아래 따로 — 색만이 아니라 제목·점선·+번호로 구분) */
+  .xbox{ margin-top:14px; padding:14px 12px 12px; border-radius:14px; border:1.5px dashed var(--faint); }
+  .xbox .box-t, .ls-xh .box-t{ margin:0; }
+  .x-note{ margin:4px 0 0; font-size:13.5px; line-height:1.55; color:var(--faint); }
+  .ls-xh{ margin-top:22px; padding-top:16px; border-top:1px solid var(--line); }
+  .ls-x{ border-style:dashed; border-color:var(--faint); }
 
   /* ---------- 암송 단계 ---------- */
   .rc-prog{ display:flex; justify-content:space-between; margin-top:18px; font-size:14px; font-weight:600; color:var(--muted); font-variant-numeric:tabular-nums; }
@@ -509,7 +519,7 @@ function weekRange(wk) {
    ediary.weeks.v1 { v: 1, count: 마지막으로 고른 질문 개수, weeks: { "월요일 YYYY-MM-DD": 주 } }
    주 = { topic, count, qs: [질문 id(쉬움 → 깊음)], gpt: [{ id, after(이 번호 질문 뒤), copied?, done?(날짜) }],
           items: { 질문 id: 항목 }, skip: [바꾸기로 뺀 질문 id], started }
-   항목 = { step(STEPS), text, updated, copied?, raw?(붙여넣은 원문), pairs?: [{ en, ko }], flow?, keywords?: [], conds?: [], orphans?, doneOn? } */
+   항목 = { step(STEPS), text, updated, copied?, raw?(붙여넣은 원문), pairs?: [{ en, ko }], extras?: [{ en, ko }](더 말하고 싶을 때 — 없으면 []로 봄), flow?, keywords?: [], conds?: [], orphans?, doneOn? } */
 const WEEKS_KEY = "ediary.weeks.v1";
 const store = (() => {
   try {
@@ -1328,21 +1338,33 @@ function fixPrompt(q, text) {
     "Question: " + q.en + "\n" +
     "My writing:\n" + text.trim() + "\n\n" +
     "[첨삭 방법]\n" +
+    "- 내 글의 순서를 그대로 따라가며 문장마다 고치는 방식은 쓰지 마. 내 이야기를 재료로 아래 순서에 맞게 다시 짜줘.\n" +
+    "  1) 첫 문장에서 질문에 바로 답하기\n" +
+    "  2) 하는 방법이나 장면\n" +
+    "  3) 이유나 느낌\n" +
+    "  4) 마지막에 첫 문장으로 돌아와 마무리\n" +
+    "- 질문과 관계가 적은 세부 설명은 줄이거나 한 문장으로 합쳐줘. 내 이야기에 없는 사실은 지어내지 마.\n" +
     "- 내가 하려던 뜻은 살리고, 미국 원어민이 실제로 말할 때 쓰는 자연스러운 구어체로 고쳐줘.\n" +
-    "- 말로 할 거라서 한 문장은 한 호흡에 말할 길이(대략 15단어 이하)로. 길면 나눠줘.\n" +
+    "- 최종본은 10문장 안팎. 말로 할 거라서 한 문장은 한 호흡에 말할 15단어 이하로.\n" +
+    "- 뼈대에서 빠진 좋은 표현은 [더 말하고 싶을 때]에 영어/한국어 짝으로 2~3개 따로 줘(최종본에는 넣지 마).\n" +
     "- 주요 수정 이유를 한국어로 짧게 설명해줘.\n\n" +
     "[한국어 번역 규칙 — 가장 중요]\n" +
-    "- 한국어는 내가 보고 영어 문장을 다시 떠올리는 신호야. 영어 한 문장 = 한국어 한 문장, 같은 번호로 짝을 맞춰줘.\n" +
+    "- 한국어는 내가 보고 영어 문장을 다시 떠올리는 신호야. 영어 한 문장 = 한국어 한 문장, 같은 번호로 짝을 맞춰줘. [더 말하고 싶을 때]도 똑같이.\n" +
     "- 정보를 빼거나 더하지 마. 시간·숫자·시제·뉘앙스(a little over a week, I'd say, apparently 같은 말)까지 살려서, 한국어만 보고도 그 영어 문장을 다시 만들 수 있게.\n" +
     "- 번역투 말고 실제로 할 법한 한국어로. 말투는 반말 구어체 하나로 통일.\n" +
     "- 다 쓴 뒤 짝마다 빠진 정보가 없는지 스스로 점검하고, 고친 결과만 내놔(점검 과정은 쓰지 마).\n\n" +
     "[상황 묘사]\n" +
-    "- 흐름: 내 이야기를 짧은 한국어 명사구로, → 로 이어서 한 줄. (예: 가족과 대화 → 2주 뒤 휴가, 계획 없음 → 여자친구의 권유 → 혼자 여행 결심)\n" +
-    "- 키워드: 내 이야기의 핵심 영어 단어·짧은 구 5~8개, 쉼표로.\n" +
+    "- 흐름: 최종본의 이야기를 짧은 한국어 명사구로, → 로 이어서 한 줄. (예: 가족과 대화 → 2주 뒤 휴가, 계획 없음 → 여자친구의 권유 → 혼자 여행 결심)\n" +
+    "- 키워드: 최종본의 핵심 영어 단어·짧은 구 5~8개, 쉼표로.\n" +
     "- 조건: 이 이야기를 조건을 바꿔 다시 말해 보는 과제 3개, 한국어로. (예: 30초 안에 말하기 / 처음 만난 사람에게 말하기 / 다녀온 뒤라고 생각하고 과거형으로)\n\n" +
     "설명이 끝나면 마지막에 아래 형식으로 정리해줘. 내가 복사하기 쉽게 [최종본]부터 끝까지 전부 코드블록(```) 하나 안에 넣어줘.\n" +
     "[최종본]\n" +
     "1. EN: 고친 영어 문장\n" +
+    "   KO: 한국어\n" +
+    "2. EN: …\n" +
+    "   KO: …\n" +
+    "[더 말하고 싶을 때]\n" +
+    "1. EN: 영어 문장\n" +
     "   KO: 한국어\n" +
     "2. EN: …\n" +
     "   KO: …\n" +
@@ -1378,38 +1400,41 @@ function gptPrompt(w) {
 
 /* =====================================================================
    첨삭 결과 읽기 (너그럽게)
-   [최종본] 1. EN: … / KO: … · [흐름] · [키워드] · [조건] — 코드블록·굵게·번호·글머리·전각 콜론·대소문자 무시.
+   [최종본] 1. EN: … / KO: … · [더 말하고 싶을 때](최종본과 같은 짝 형식, 따로 모음 — 2026-10-08) · [흐름] · [키워드] · [조건]
+   — 코드블록·굵게·번호·글머리·전각 콜론·대소문자 무시.
    이름표 없는 줄: 한글이면 앞 영어의 한국어, 영어면(앞 짝에 한국어가 아직 없을 때) 앞 영어에 이어 붙임 / 아니면 새 문장
    ===================================================================== */
 const SEC_NAME = { "최종본": "final", "최종": "final", "흐름": "flow", "한국어 흐름": "flow", "키워드": "kw", "영어 키워드": "kw", "조건": "cond", "조건 바꿔 말하기": "cond" };
+const secName = s => SEC_NAME[s] || (/^더\s*말하고\s*싶을\s*때$/.test(s) ? "extra" : null);   // 띄어쓰기가 달라도(싶을때)
 function cleanLine(src) {
   return src.replace(/```[\w-]*/g, "").replace(/\*\*|__/g, "").replace(/：/g, ":").replace(/^\s*#{1,6}\s*/, "").replace(/^\s*>\s*/, "").trim();
 }
 function sectionOf(line) {
   let m = line.match(/^\[\s*([^\]]{1,14}?)\s*\]\s*:?\s*(.*)$/);
-  if (m && SEC_NAME[m[1]]) return { sec: SEC_NAME[m[1]], rest: m[2] };
-  m = line.match(/^([가-힣 ]{1,10}?)\s*:\s*(.*)$/);
-  if (m && SEC_NAME[m[1].trim()]) return { sec: SEC_NAME[m[1].trim()], rest: m[2] };
-  if (SEC_NAME[line]) return { sec: SEC_NAME[line], rest: "" };
+  if (m && secName(m[1])) return { sec: secName(m[1]), rest: m[2] };
+  m = line.match(/^([가-힣 ]{1,12}?)\s*:\s*(.*)$/);
+  if (m && secName(m[1].trim())) return { sec: secName(m[1].trim()), rest: m[2] };
+  if (secName(line)) return { sec: secName(line), rest: "" };
   return null;
 }
 function parseFix(raw, startSec) {
-  const pairs = [], flow = [], kw = [], conds = [];
+  const pairs = [], extras = [], flow = [], kw = [], conds = [];
   let sec = startSec || null, cur = null, orphans = 0, sawFinal = false;
-  const addKo = (txt, num) => {
+  const addKo = (list, txt, num) => {
     let p = cur;
-    if (num != null) p = pairs.find(x => x.n === num && !x.ko) || (cur && !cur.ko && cur.n == null ? cur : null);
+    if (num != null) p = list.find(x => x.n === num && !x.ko) || (cur && !cur.ko && cur.n == null ? cur : null);
     if (p && !p.ko) { p.ko = txt; return; }
     if (p && p.ko && p === cur && !num) { p.ko += " " + txt; return; }
-    orphans++;
-    pairs.push({ n: num, en: "", ko: txt });
+    if (list === pairs) orphans++;
+    list.push({ n: num, en: "", ko: txt });
   };
   String(raw || "").replace(/\r/g, "").split("\n").forEach(src => {
     let line = cleanLine(src);
     if (!line || /^[-—–_=*·•─━]{3,}$/.test(line)) return;
     const s = sectionOf(line);
     if (s) { sec = s.sec; if (sec === "final") sawFinal = true; line = s.rest.trim(); cur = null; if (!line) return; }
-    if (sec === "final") {
+    if (sec === "final" || sec === "extra") {                                 // 최종본·더 말하고 싶을 때 = 같은 짝 형식, 목록만 따로(번호 짝도 목록 안에서)
+      const list = sec === "final" ? pairs : extras;
       let num = null;
       const nm = line.match(/^(\d{1,2})\s*[.)]\s*(.*)$/);
       if (nm) { num = +nm[1]; line = nm[2]; }
@@ -1419,16 +1444,16 @@ function parseFix(raw, startSec) {
         const isEn = /^(en|eng|english|영어)$/i.test(lm[1]);
         const txt = lm[2].trim();
         if (!txt) return;
-        if (isEn) { cur = { n: num, en: txt, ko: "" }; pairs.push(cur); }
-        else addKo(txt, num);
+        if (isEn) { cur = { n: num, en: txt, ko: "" }; list.push(cur); }
+        else addKo(list, txt, num);
         return;
       }
       const sp = line.split(/\s+[/|]\s+/);                                   // "영어 / 한국어" 한 줄
-      if (sp.length === 2 && !HANGUL_RE.test(sp[0]) && HANGUL_RE.test(sp[1])) { cur = { n: num, en: sp[0].trim(), ko: sp[1].trim() }; pairs.push(cur); return; }
-      if (HANGUL_RE.test(line)) addKo(line.replace(/^[(（]\s*|\s*[)）]$/g, ""), num);
+      if (sp.length === 2 && !HANGUL_RE.test(sp[0]) && HANGUL_RE.test(sp[1])) { cur = { n: num, en: sp[0].trim(), ko: sp[1].trim() }; list.push(cur); return; }
+      if (HANGUL_RE.test(line)) addKo(list, line.replace(/^[(（]\s*|\s*[)）]$/g, ""), num);
       else if (/[A-Za-z]/.test(line)) {
         if (cur && !cur.ko && num == null) cur.en += " " + line;
-        else { cur = { n: num, en: line, ko: "" }; pairs.push(cur); }
+        else { cur = { n: num, en: line, ko: "" }; list.push(cur); }
       }
       return;
     }
@@ -1440,8 +1465,10 @@ function parseFix(raw, startSec) {
     const again = parseFix(raw, "final");                                     // [최종본] 머리 없이 EN/KO만 붙여넣은 경우
     if (again.pairs.some(p => p.en)) return again;
   }
+  const tidy = p => ({ en: p.en.trim(), ko: (p.ko || "").trim() });
   return {
-    pairs: pairs.map(p => ({ en: p.en.trim(), ko: (p.ko || "").trim() })),
+    pairs: pairs.map(tidy),
+    extras: extras.filter(p => p.en.trim()).map(tidy),                       // 영어 없는 한글만 있는 건 버림
     flow: flow.join(" ").trim(), keywords: kw, conds, orphans
   };
 }
@@ -1453,7 +1480,8 @@ function applyPaste(it, text) {
   it.flow = r.flow;
   it.keywords = r.keywords;
   it.conds = r.conds;
-  it.paraWant = true;                                                       // 새 답변 → 듣기 단계에서 음성을 만들 때 문단 음성도 같이(paraEnsure)
+  if (r.extras.length) it.extras = r.extras; else delete it.extras;         // 더 말하고 싶을 때 — 없는 답(예전 형식)이면 칸을 안 만듦
+  it.paraWant = true;                                                      // 새 답변 → 듣기 단계에서 음성을 만들 때 문단 음성도 같이(paraEnsure)
   save();
   return true;
 }
@@ -1652,7 +1680,7 @@ $("weekPage").addEventListener("click", e => {
    질문 진행 화면 (쓰기 → 첨삭 → 듣기 → 암송 → 말하기 → 완료)
    F.view = 보고 있는 단계(지난 단계도 다시 볼 수 있음), 진행은 항목의 step(가장 멀리 간 단계)
    ===================================================================== */
-const F = { open: false, kind: null, wk: null, qid: null, gid: null, view: 0, rd: null, rcShown: false, rcAuto: false, rcQ: null, tm: null, tmTimer: 0 };
+const F = { open: false, kind: null, wk: null, qid: null, gid: null, view: 0, rd: null, rdx: null, rcShown: false, rcAuto: false, rcQ: null, tm: null, tmTimer: 0 };
 const FL = { el: $("flow"), title: $("flowTitle"), steps: $("flowSteps"), body: $("flowBody"), foot: $("flowFoot") };
 function fWeek() { return store.weeks[F.wk] || null; }
 function showFlow() {
@@ -1662,7 +1690,7 @@ function showFlow() {
 }
 function hideFlow() {
   Player.stop();
-  F.rd = null;
+  F.rd = F.rdx = null;
   clearInterval(F.tmTimer);
   F.tm = null;
   F.rcShown = false;
@@ -1699,7 +1727,7 @@ function advance(it, v) {
 }
 function renderFlow() {
   Player.stop();                                                             // 화면을 다시 그리면 소리도 멈춤(문장 요소가 새로 만들어짐)
-  F.rd = null;
+  F.rd = F.rdx = null;
   clearInterval(F.tmTimer);                                                  // 타이머는 setupTimer가 다시 켬
   if (F.tm && F.tm.ctx !== flowCtx()) F.tm = null;                           // 다른 화면으로 가면 타이머 끝
   const rk = rcCtx();
@@ -1982,36 +2010,51 @@ async function paraEnsure(it) {
 /* ---------- 듣기 단계 (2단계): 최종본 문장마다 노래방식 ----------
    [전체 듣기]는 1번부터 끝까지 이어서(문장 사이 0.45초), 문장 옆 스피커는 그 문장만(다시 누르면 멈춤),
    단어를 누르면 그 단어부터(이어 듣는 중이면 거기서부터 계속, 아니면 그 문장만). 속도는 설정과 같은 값.
-   음성은 문장마다 따로 캐시 → 다시 들을 땐 크레딧 없음, 한글만 고치면 음성은 그대로 */
+   음성은 문장마다 따로 캐시 → 다시 들을 땐 크레딧 없음, 한글만 고치면 음성은 그대로
+   더 말하고 싶을 때(it.extras, 2026-10-08): 최종본 아래 따로(+1 · +2 …) — 재생기도 따로(F.rdx)라 [전체 듣기]에는 안 들어감, 스피커·단어 = 그 문장만 */
+function lsRowHtml(p, i, x) {
+  const no = x ? "+" + (i + 1) : String(i + 1);
+  return '<li class="pair ls-row' + (x ? " ls-x" : "") + '" data-i="' + i + '"><span class="pn">' + no + '</span><div class="pb"><div class="pe" lang="en">' + scriptHtml(p.en) + '</div><div class="pko">' + esc(p.ko) + "</div></div>" +
+    '<button class="spk" ' + (x ? "data-xsay" : "data-say") + '="' + i + '" aria-label="' + (x ? "더 말하고 싶을 때 " : "") + (i + 1) + '번 문장 듣기">' + IC.speaker + "</button></li>";
+}
 function listenHtml(it) {
-  const ps = (it.pairs || []).filter(p => p.en);
+  const ps = (it.pairs || []).filter(p => p.en), xs = (it.extras || []).filter(p => p.en);
   return '<div class="ls-bar"><button class="ls-play" data-ls="all">' + IC.play + "전체 듣기</button>" +
     '<div class="seg rate-seg" role="group" aria-label="속도">' + RATES.map(r => '<button data-rate="' + r + '" aria-pressed="' + (settings.rate === r) + '">' + rateLabel(r) + "</button>").join("") + "</div></div>" +
     '<p class="note">단어를 누르면 그 자리부터 들어요.' + (settings.apiKey ? "" : " 지금은 API 키가 없어서 폰 기본 음성으로 읽어요(설정에서 넣을 수 있어요).") + "</p>" +
-    '<ul class="pairs" id="lsList">' + ps.map((p, i) =>
-      '<li class="pair ls-row" data-i="' + i + '"><span class="pn">' + (i + 1) + '</span><div class="pb"><div class="pe" lang="en">' + scriptHtml(p.en) + '</div><div class="pko">' + esc(p.ko) + "</div></div>" +
-      '<button class="spk" data-say="' + i + '" aria-label="' + (i + 1) + '번 문장 듣기">' + IC.speaker + "</button></li>").join("") + "</ul>";
+    '<ul class="pairs" id="lsList">' + ps.map((p, i) => lsRowHtml(p, i, false)).join("") + "</ul>" +
+    (xs.length ? '<div class="ls-xh"><div class="box-t">더 말하고 싶을 때</div><p class="x-note">전체 듣기에는 안 들어가요. 스피커를 눌러 따로 들어요.</p></div>' +
+      '<ul class="pairs" id="lsX">' + xs.map((p, i) => lsRowHtml(p, i, true)).join("") + "</ul>" : "");
 }
-function setupListen() {
-  const rows = () => Array.from(FL.body.querySelectorAll(".ls-row"));
+function lsReader(sel, o) {                                                   // 최종본(.ls-row:not(.ls-x)) · 더 말하고 싶을 때(.ls-x) 재생기 하나씩
+  const rows = () => Array.from(FL.body.querySelectorAll(sel));
   const mark = i => rows().forEach((r, k) => r.classList.toggle("cur", k === i));
-  F.rd = createReader({
+  return createReader(Object.assign({
     items: () => rows().map(r => ({ el: r.querySelector(".sc"), btn: r.querySelector(".spk") })),
     rate: () => settings.rate,
-    gap: 450,
+    onEnd: () => mark(-1)
+  }, o, {
     onItem: i => {
       mark(i);
-      const w = fWeek(), it = w && itemOf(w, F.qid);
-      if (it && it.paraWant) paraEnsure(it);                                  // 새 답변의 음성을 만들 때 문단 음성도 같이
+      if (o.onItem) o.onItem(i);
       const r = rows()[i];
       if (r) {                                                                // 그 문장이 보이게
         const b = FL.body.getBoundingClientRect(), rr = r.getBoundingClientRect();
         if (rr.top < b.top + 8 || rr.bottom > b.bottom - 8) autoScroll(FL.body, FL.body.scrollTop + rr.top - b.top - 12);
       }
+    }
+  }));
+}
+function setupListen() {
+  F.rd = lsReader(".ls-row:not(.ls-x)", {
+    gap: 450,
+    onItem: () => {
+      const w = fWeek(), it = w && itemOf(w, F.qid);
+      if (it && it.paraWant) paraEnsure(it);                                  // 새 답변의 음성을 만들 때 문단 음성도 같이
     },
-    onEnd: () => mark(-1),
     onChange: paintListen
   });
+  F.rdx = FL.body.querySelector(".ls-x") ? lsReader(".ls-x", {}) : null;
   paintListen();
 }
 function paintListen() {
@@ -2052,12 +2095,19 @@ FL.body.addEventListener("click", e => {
     if (s.active && s.index === i && s.single) F.rd.stop(); else F.rd.play(i, 0, true);
     return;
   }
+  if ((b = t.closest("[data-xsay]")) && F.rdx) {                             // 더 말하고 싶을 때: 그 문장만
+    const i = +b.dataset.xsay, s = F.rdx.state();
+    if (s.active && s.index === i) F.rdx.stop(); else F.rdx.play(i, 0, true);
+    return;
+  }
   const row = t.closest(".ls-row"), area = row && t.closest(".pe");          // 단어 = 그 단어부터(가까운 단어도, 스크롤하다 눌린 건 무시)
   if (!area || !lsTapOk()) return;
   const w = wordAtTap(e, area);
   if (!w) return;
+  const rd = row.classList.contains("ls-x") ? F.rdx : F.rd;
+  if (!rd) return;
   flashWord(w);
-  F.rd.seek(+row.dataset.i, +w.dataset.w);
+  rd.seek(+row.dataset.i, +w.dataset.w);
 });
 const lsTapOk = tapGuard(FL.body);
 /* 첨삭 결과 확인: 문장 짝(한글은 바로 고칠 수 있음) + 개수 경고 + 상황 묘사 */
@@ -2080,6 +2130,14 @@ function checkHtml(it) {
       '<textarea class="pk' + (p.ko ? "" : " empty") + '" data-ko="' + i + '" rows="1" placeholder="한글을 써 주세요" aria-label="' + (k || "") + '번 한글">' + esc(p.ko) + "</textarea></div></li>";
   });
   h += "</ul>";
+  const xs = it.extras || [];                                                // 더 말하고 싶을 때(예전 기록·예전 형식 답은 없음 → 상자 안 보임)
+  if (xs.length) {
+    h += '<div class="xbox"><div class="box-t">더 말하고 싶을 때 · ' + xs.length + "개</div>" +
+      '<p class="x-note">뼈대에 넣지 않은 표현이에요. 암송·말하기에는 안 나와요.</p><ul class="pairs">' +
+      xs.map((p, i) => '<li class="pair' + (p.ko ? "" : " bad") + '"><span class="pn">+' + (i + 1) + '</span><div class="pb"><div class="pe">' + esc(p.en) + "</div>" +
+        '<textarea class="pk' + (p.ko ? "" : " empty") + '" data-xko="' + i + '" rows="1" placeholder="한글을 써 주세요" aria-label="더 말하고 싶을 때 ' + (i + 1) + '번 한글">' + esc(p.ko) + "</textarea></div></li>").join("") +
+      "</ul></div>";
+  }
   const miss = [!it.flow && "흐름", !(it.keywords || []).length && "키워드", !(it.conds || []).length && "조건"].filter(Boolean);
   h += '<div class="box"><div class="box-t">상황 묘사 · 흐름</div><div class="flow">' + (it.flow ? esc(it.flow) : "—") + "</div></div>" +
     '<div class="box"><div class="box-t">키워드</div><div class="kw">' + ((it.keywords || []).map(x => "<span>" + esc(x) + "</span>").join("") || "—") + "</div></div>" +
@@ -2100,7 +2158,7 @@ FL.body.addEventListener("input", e => {
     const go = FL.foot.querySelector('[data-act="written"]');
     if (go) go.disabled = !wc;
   } else if (t.matches(".pk")) {
-    const p = it.pairs[+t.dataset.ko];
+    const p = t.dataset.xko != null ? (it.extras || [])[+t.dataset.xko] : it.pairs[+t.dataset.ko];
     if (p) { p.ko = t.value.replace(/\s*\n\s*/g, " "); t.classList.toggle("empty", !p.ko.trim()); saveSoon(); }
     autoGrow(t);
   } else if (t.id === "fMan") {
@@ -2405,9 +2463,10 @@ function renderLog() {
     if (open) {
       h += '<div class="lg-b">' + w.qs.map((qid, i) => {
         const q = Q_BY_ID[qid] || { ko: qid }, it = w.items[qid] || {};
-        const ps = (it.pairs || []).filter(p => p.en);
+        const ps = (it.pairs || []).filter(p => p.en), xs = ps.length ? (it.extras || []).filter(p => p.en) : [];
         return '<div class="lg-q"><span class="st-l">질문 ' + (i + 1) + " · " + qStatus(w, qid) + "</span><h3>" + esc(q.ko) + "</h3>" +
-          (ps.length ? "<p>" + ps.map(p => esc(p.en)).join(" ") + "</p>" : it.text ? '<p style="color:var(--muted)">' + esc(it.text) + "</p>" : "") + "</div>";
+          (ps.length ? "<p>" + ps.map(p => esc(p.en)).join(" ") + "</p>" : it.text ? '<p style="color:var(--muted)">' + esc(it.text) + "</p>" : "") +
+          (xs.length ? '<div class="lg-x"><span class="lg-xt">더 말하고 싶을 때</span>' + xs.map(p => "<p>" + esc(p.en) + (p.ko ? "<span>" + esc(p.ko) + "</span>" : "") + "</p>").join("") + "</div>" : "") + "</div>";
       }).join("") + "</div>";
     }
     h += "</div>";
