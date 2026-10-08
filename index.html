@@ -3,7 +3,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-oLbmAINQu3F7DZN057+6dnEuaHXm2CT240s0KKSq3MY='; style-src 'unsafe-inline'; connect-src 'self' https://api.elevenlabs.io; media-src blob:; img-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-rmwKRjTMqihXvrVf7EOEQ73IChtFlWYtFnNxPpYg6CE='; style-src 'unsafe-inline'; connect-src 'self' https://api.elevenlabs.io; media-src blob:; img-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#121417" media="(prefers-color-scheme: dark)">
@@ -301,6 +301,18 @@
   .tm-bar i{ display:block; height:100%; border-radius:6px; background:var(--accent); transition:width .25s linear; }
   .tm-bar.over i{ background:repeating-linear-gradient(45deg, var(--accent) 0 10px, var(--accent-line) 10px 20px); }
   .tm-msg{ margin:10px 0 0; font-size:14.5px; line-height:1.5; color:var(--text-2); }
+  /* 말하기 녹음(2026-10-08): 시간 상자 안 "● 녹음 중" 줄 · 아래 '내 녹음' 상자(다시 듣기 · 파일로 저장) */
+  .rec-live{ display:flex; align-items:center; gap:8px; margin:10px 0 0; font-size:14.5px; font-weight:650; line-height:1.5; color:var(--text-2); }
+  .rec-dot{ flex:none; width:10px; height:10px; border-radius:50%; background:#E5484D; animation:recBlink 1.2s ease-in-out infinite; }
+  .rec-dot.wait{ background:var(--faint); animation:none; }
+  @keyframes recBlink{ 50%{ opacity:.35; } }
+  @media (prefers-reduced-motion: reduce){ .rec-dot{ animation:none; } }
+  .rec-card{ margin-top:12px; padding:14px 16px 12px; border-radius:16px; background:var(--card); border:1.5px solid var(--line); }
+  .rec-h{ font-size:15px; font-weight:750; color:var(--text); font-variant-numeric:tabular-nums; }
+  .rec-btns{ display:flex; gap:10px; margin-top:10px; }
+  .rec-btns .outline-btn{ flex:1; width:auto; min-width:0; margin-top:0; }
+  .rec-hint{ margin:10px 0 0; font-size:13.5px; line-height:1.55; color:var(--faint); overflow-wrap:anywhere; }
+  .rec-note{ margin:12px 2px 0; font-size:14px; line-height:1.55; color:var(--text-2); }
 
   /* ---------- 워밍업 · 주말 복습 ---------- */
   .wu-k, .rv-n{ display:inline-block; margin-top:4px; padding:3px 10px; border-radius:8px; font-size:13px; font-weight:750; background:var(--accent-soft); color:var(--accent); }
@@ -594,7 +606,8 @@ const IC = {
   gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg>',
   speaker: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 9.5h3l4.5-4v13l-4.5-4h-3z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>',
   play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10.5-6.5z"/></svg>',
-  pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6.5" y="5.5" width="4" height="13" rx="1"/><rect x="13.5" y="5.5" width="4" height="13" rx="1"/></svg>'
+  pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6.5" y="5.5" width="4" height="13" rx="1"/><rect x="13.5" y="5.5" width="4" height="13" rx="1"/></svg>',
+  dl: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5v10.5M7.5 10.5l4.5 4.5 4.5-4.5M5 19.5h14"/></svg>'
 };
 document.querySelectorAll("[data-open-settings]").forEach(b => { b.innerHTML = IC.gear; });
 const GEAR_BTN = '<button class="gear" data-open-settings aria-label="설정">' + IC.gear + "</button>";
@@ -1690,6 +1703,7 @@ function showFlow() {
 }
 function hideFlow() {
   Player.stop();
+  recDrop();
   F.rd = F.rdx = null;
   clearInterval(F.tmTimer);
   F.tm = null;
@@ -1730,6 +1744,7 @@ function renderFlow() {
   F.rd = F.rdx = null;
   clearInterval(F.tmTimer);                                                  // 타이머는 setupTimer가 다시 켬
   if (F.tm && F.tm.ctx !== flowCtx()) F.tm = null;                           // 다른 화면으로 가면 타이머 끝
+  if (REC.ctx && REC.ctx !== flowCtx()) recDrop();                           // 녹음도 버림(화면에 있는 동안만)
   const rk = rcCtx();
   if (rk !== F.rcQ) F.rcShown = false;                                       // 암송 카드: 다른 화면에서 오면 한글부터
   F.rcQ = rk;
@@ -1892,11 +1907,11 @@ function timerMsg(state, sec, goal, idle) {
   if (state === "stopped") return fmtSec(sec) + " 동안 말했어요" + (sec >= goal ? " — 목표 시간을 채웠어요 👏" : "");
   return idle;
 }
-function timerHtml(ctx, goal, idle) {
+function timerHtml(ctx, goal, idle, extra) {                                   // extra = 상자 맨 아래에 붙일 것(말하기 단계의 녹음 줄)
   const tm = timerOf(ctx), state = timerState(ctx), sec = timerSec(tm);
   return '<div class="tm' + (state === "running" ? " on" : "") + '"><div class="tm-row"><span class="tm-t" id="tmT">' + fmtSec(sec) + '</span><span class="tm-goal">목표 약 ' + goalLabel(goal) + "</span></div>" +
     '<div class="tm-bar' + (sec >= goal ? " over" : "") + '"><i id="tmBar" style="width:' + Math.min(100, sec / goal * 100) + '%"></i></div>' +
-    '<p class="tm-msg" id="tmMsg">' + timerMsg(state, sec, goal, idle) + "</p></div>";
+    '<p class="tm-msg" id="tmMsg">' + timerMsg(state, sec, goal, idle) + "</p>" + (extra || "") + "</div>";
 }
 function timerStart(ctx, goal) { F.tm = { ctx, start: Date.now(), end: 0, goal }; buzz(); renderFlow(); }
 function timerStop() {                                                        // → 걸린 초(반올림), 흐르는 중이 아니면 null
@@ -1932,7 +1947,9 @@ function speakView(it, qHead) {
   const ctx = "speak:" + F.qid, state = timerState(ctx);
   const body = qHead + '<div class="box-t" style="margin-top:20px">이 흐름만 보고 내 말로 다시 말해 보세요</div>' +
     '<div class="big-flow">' + (it.flow ? esc(it.flow) : "흐름이 없어요 — 첨삭 결과에 [흐름]이 있는지 확인해 주세요") + "</div>" +
-    timerHtml(ctx, speakGoal(it), it.spoke ? "지난번 " + fmtSec(it.spoke.sec) + " 말했어요 · 다시 해도 돼요" : "[말하기 시작]을 누르고 말해요. 시간이 막대로 보여요") +
+    timerHtml(ctx, speakGoal(it), it.spoke ? "지난번 " + fmtSec(it.spoke.sec) + " 말했어요 · 다시 해도 돼요" : "[말하기 시작]을 누르고 말해요. 시간이 막대로 보여요",
+      '<div id="recLive">' + recLiveHtml() + "</div>") +
+    '<div id="recBox">' + recBoxHtml() + "</div>" +
     '<p class="note">외운 문장 그대로가 아니어도 괜찮아요. 막히면 다른 말로 돌려 말해요.</p>';
   let foot;
   if (state === "running") foot = '<button class="go" data-act="sp-stop">' + IC.check + "다 말했어요</button>";
@@ -1943,9 +1960,123 @@ function speakView(it, qHead) {
   return [body, foot];
 }
 function speakAct(it, act) {
-  if (act === "sp-start") { timerStart("speak:" + F.qid, speakGoal(it)); return; }
-  if (act === "sp-stop") { const sec = timerStop(); if (sec != null) { it.spoke = { sec, on: dateKey() }; save(); renderFlow(); } }
+  if (act === "sp-start") { recStart("speak:" + F.qid, fWeek().qs.indexOf(F.qid) + 1); timerStart("speak:" + F.qid, speakGoal(it)); return; }
+  if (act === "sp-stop") { const sec = timerStop(); recStop(); if (sec != null) { it.spoke = { sec, on: dateKey() }; save(); renderFlow(); } return; }
+  if (act === "sp-play") { recPlay(); return; }
+  if (act === "sp-save") recSave();
 }
+
+/* ---------- 말하기 녹음 (2026-10-08): [말하기 시작] = 타이머 + 폰 마이크 녹음, [다 말했어요] = 녹음 멈춤 → [다시 듣기] · [파일로 저장]
+   녹음은 이 화면에 있는 동안만(메모리 — ediary.*·IndexedDB 어디에도 안 남김, 사용자 결정). 화면을 닫거나 다른 단계로 가거나
+   [다시 말해 보기]를 누르면 버림. 형식: m4a(audio/mp4)가 되면 m4a, 아니면 webm. 파일 이름 = 영어일기_날짜_질문n_시분.확장자.
+   마이크 권한 거절·지원 안 함이면 녹음 없이 말하기만(타이머·기록 그대로) + 안내 한 줄. 말하기 단계에만(워밍업·주말 복습엔 없음) */
+const REC_TYPES = ["audio/mp4;codecs=mp4a.40.2", "audio/mp4", "audio/webm;codecs=opus", "audio/webm"];
+const REC = { ctx: "", state: "", gen: 0 };                                   // state: "" | wait(마이크 기다림) | on(녹음 중) | save(정리 중) | done | off(녹음 없음 + note)
+function recReset() { Object.assign(REC, { ctx: "", state: "", mr: null, stream: null, chunks: [], t0: 0, sec: 0, blob: null, url: "", base: "", name: "", note: "", cut: false, saved: false, audio: null, playing: false, tick: 0 }); }
+recReset();
+const recOk = () => !!(window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
+function recDrop() {
+  REC.gen++;
+  const mr = REC.mr;
+  if (mr) { mr.ondataavailable = mr.onstop = mr.onerror = null; try { if (mr.state !== "inactive") mr.stop(); } catch (e) {} }
+  if (REC.stream) REC.stream.getTracks().forEach(t => t.stop());              // 마이크 끔
+  clearInterval(REC.tick);
+  if (REC.audio) REC.audio.pause();
+  if (REC.url) URL.revokeObjectURL(REC.url);
+  recReset();
+}
+function recStart(ctx, n) {
+  recDrop();
+  const d = appNow();
+  REC.ctx = ctx;
+  REC.base = "영어일기_" + dateKey(d) + "_질문" + n + "_" + pad2(d.getHours()) + pad2(d.getMinutes());
+  if (!recOk()) { REC.state = "off"; REC.note = "이 브라우저는 녹음을 지원하지 않아서 녹음 없이 진행해요"; return; }
+  REC.state = "wait";
+  const my = REC.gen;
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    if (my !== REC.gen) { stream.getTracks().forEach(t => t.stop()); return; }   // 그 사이에 끝냈거나 나감
+    const type = REC_TYPES.find(t => { try { return MediaRecorder.isTypeSupported(t); } catch (e) { return false; } });
+    let mr;
+    try { mr = new MediaRecorder(stream, type ? { mimeType: type, audioBitsPerSecond: 64000 } : { audioBitsPerSecond: 64000 }); }
+    catch (e) { stream.getTracks().forEach(t => t.stop()); recFail("녹음을 시작하지 못해서 녹음 없이 진행해요"); return; }
+    Object.assign(REC, { stream, mr, chunks: [] });
+    mr.ondataavailable = e => { if (e.data && e.data.size) REC.chunks.push(e.data); };
+    mr.onstop = () => recDone(my);
+    mr.onerror = () => recCut(my);
+    stream.getAudioTracks().forEach(t => t.addEventListener("ended", () => recCut(my)));   // 전화 등으로 마이크가 끊김
+    mr.start(1000);
+    REC.t0 = Date.now(); REC.state = "on"; recPaint();
+  }, err => {
+    if (my !== REC.gen) return;
+    const nm = err && err.name;
+    recFail(nm === "NotAllowedError" || nm === "SecurityError" ? "마이크를 쓸 수 없어서 녹음 없이 진행해요"
+      : nm === "NotFoundError" ? "마이크를 찾지 못해서 녹음 없이 진행해요" : "녹음을 시작하지 못해서 녹음 없이 진행해요");
+  });
+}
+function recFail(msg) { REC.state = "off"; REC.note = msg; recPaint(); }
+function recStop() {                                                         // [다 말했어요]
+  if (REC.state === "wait") { REC.gen++; recFail("녹음이 시작되기 전에 끝나서 이번엔 녹음이 없어요"); return; }
+  if (REC.state !== "on") return;
+  REC.sec = (Date.now() - REC.t0) / 1000;
+  REC.state = "save";
+  try { REC.mr.stop(); } catch (e) { recDone(REC.gen); }
+}
+function recCut(my) { if (my === REC.gen && REC.state === "on") { REC.cut = true; recStop(); recPaint(); } }   // 거기까지 남김
+function recDone(my) {
+  if (my !== REC.gen) return;
+  if (REC.stream) REC.stream.getTracks().forEach(t => t.stop());
+  const type = (REC.mr && REC.mr.mimeType) || (REC.chunks[0] && REC.chunks[0].type) || "audio/webm";
+  const blob = new Blob(REC.chunks, { type });
+  REC.chunks = [];
+  if (!blob.size) { recFail("녹음이 비어 있어요 — [다시 말해 보기]로 다시 녹음할 수 있어요"); return; }
+  REC.blob = blob; REC.url = URL.createObjectURL(blob);
+  REC.name = REC.base + "." + (/mp4|m4a|aac/.test(type) ? "m4a" : /ogg/.test(type) ? "ogg" : "webm");
+  REC.state = "done";
+  if (REC.cut) REC.note = "마이크가 중간에 끊겨서 거기까지만 녹음됐어요";
+  recPaint();
+  const b = $("recBox"); if (b && b.scrollIntoView) b.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+function recPlay() {
+  if (!REC.url) return;
+  const a = REC.audio || (REC.audio = new Audio());
+  if (!a.src) {
+    a.src = REC.url;
+    a.addEventListener("ended", () => { REC.playing = false; clearInterval(REC.tick); a.currentTime = 0; recPaint(); });
+  }
+  clearInterval(REC.tick);
+  if (REC.playing) { a.pause(); REC.playing = false; recPaint(); return; }
+  Player.stop();
+  REC.playing = true;
+  const p = a.play();
+  if (p && p.catch) p.catch(() => { if (REC.audio !== a) return; REC.playing = false; clearInterval(REC.tick); recPaint(); toast("녹음을 재생하지 못했어요"); });
+  REC.tick = setInterval(() => { const t = $("recT"); if (t) t.textContent = recTime(); }, 250);
+  recPaint();
+}
+function recSave() {
+  if (!REC.url) return;
+  const a = document.createElement("a");
+  a.href = REC.url; a.download = REC.name; a.hidden = true;
+  document.body.appendChild(a); a.click(); a.remove();
+  REC.saved = true; buzz(); toast("저장했어요 — 내 파일 › 다운로드"); recPaint();
+}
+const recTime = () => { const c = REC.audio ? REC.audio.currentTime || 0 : 0; return REC.playing || c > 0 ? fmtSec(Math.min(c, REC.sec)) + " / " + fmtSec(REC.sec) : fmtSec(REC.sec); };
+function recLiveHtml() {                                                     // 시간 상자 안
+  if (REC.state === "wait") return '<p class="rec-live"><span class="rec-dot wait"></span>마이크 준비 중… 처음이면 [허용]을 눌러 주세요</p>';
+  if (REC.state === "on") return '<p class="rec-live"><span class="rec-dot"></span>녹음 중</p>';
+  if (REC.state === "save") return '<p class="rec-live">녹음 정리 중…</p>';
+  return "";
+}
+function recBoxHtml() {                                                      // 시간 상자 아래
+  if (REC.state === "off") return '<p class="rec-note">' + esc(REC.note) + "</p>";
+  if (REC.state !== "done") return "";
+  const c = REC.audio ? REC.audio.currentTime || 0 : 0;
+  const play = REC.playing ? IC.pause + "멈춤" : IC.play + (c > 0 ? "이어 듣기" : "다시 듣기");
+  return '<div class="rec-card"><div class="rec-h">내 녹음 · <span id="recT">' + recTime() + "</span></div>" +
+    (REC.note ? '<p class="rec-note" style="margin-top:6px">' + esc(REC.note) + "</p>" : "") +
+    '<div class="rec-btns"><button class="outline-btn" data-act="sp-play">' + play + '</button><button class="outline-btn" data-act="sp-save">' + IC.dl + "파일로 저장</button></div>" +
+    '<p class="rec-hint">' + (REC.saved ? "저장했어요 · " + esc(REC.name) + "<br>" : "") + "화면을 나가거나 다시 말하면 이 녹음은 지워져요 · 저장한 파일은 그대로</p></div>";
+}
+function recPaint() { const a = $("recLive"), b = $("recBox"); if (a) a.innerHTML = recLiveHtml(); if (b) b.innerHTML = recBoxHtml(); }
 
 /* ---------- 워밍업 (3-1): 다음 질문을 시작하기 직전, 앞 질문을 ② 영어 키워드만 보고 1분 다시 말하기 ----------
    언제: 질문 n(2번째부터)을 열었는데 아직 아무것도 안 썼고(쓰기 단계·글 없음), 바로 앞 질문(질문 n−1)이 끝났고 키워드가 있을 때 — 한 번만.

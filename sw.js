@@ -5,7 +5,7 @@
      앱 화면에는 "새 버전이 나왔어요 [새로 고침]" 막대가 뜸(index.html '앱 업데이트').
    - 같은 github.io 주소를 쓰는 한 장 영어와 저장 공간(Cache Storage)을 같이 쓰므로, **지울 때는 ediary- 로 시작하는 옛 저장소만** 지움.
    - ElevenLabs 같은 다른 사이트 요청, GET이 아닌 요청은 건드리지 않음(음성은 앱이 IndexedDB ediary-tts에 따로 저장). */
-const CACHE = "ediary-v6";
+const CACHE = "ediary-v7";
 const CORE = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./icon-maskable-512.png", "./data/topics.js"];
 
 self.addEventListener("install", e => {
