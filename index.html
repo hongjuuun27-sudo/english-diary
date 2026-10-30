@@ -3,7 +3,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-ZJxiqJG3aNwcRbMo8MNoMdHH0UYm6BrpFNAvmUyd8wM='; style-src 'unsafe-inline'; connect-src 'self' https://api.elevenlabs.io; media-src blob:; img-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-+50TnrscNUxn05NrVjH8Nc23zHh3sfkKQ/kfVT8Htyg='; style-src 'unsafe-inline'; connect-src 'self' https://api.elevenlabs.io; media-src blob:; img-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#121417" media="(prefers-color-scheme: dark)">
@@ -497,7 +497,7 @@
 "use strict";
 /* =====================================================================
    영어일기 — 1단계: 챕터(주제 고르기·타임라인) · 질문 진행(쓰기·첨삭) · GPT 대화 · 기록
-   + 오픽 모의고사 모드(2026-10-30): 맨 위 모드 막대로 바꿈. 같은 질문 진행 화면을 쓰되 쓰기 → 첨삭(Claude) → 듣기 → 말하기만
+   + 오픽 모의고사 모드(2026-10-30): 맨 위 모드 막대로 바꿈. 같은 질문 진행 화면을 쓰되 쓰기 → 첨삭(Claude) → 듣기 → 암송 → 말하기만
    저장 키는 모두 "ediary." (한 장 영어 "engcards."와 겹치지 않게)
    ===================================================================== */
 
@@ -1482,7 +1482,12 @@ function fixPrompt(q, text) {
 }
 /* 오픽 모의고사 첨삭 프롬프트(2026-10-30) — Claude에 붙여넣음. 결과 형식은 일기와 같은 [최종본] EN/KO 짝 + [흐름](한글 키워드를 → 로) —
    바꾸면 parseFix도 같이. [더 말하고 싶을 때]·[키워드]·[조건]은 안 받음(시험용으로 단순하게) */
+/* 오픽 목표 시간(2026-10-30): 자기소개 약 1분, 그 외 약 1분 30초 — 첨삭 분량(opicPrompt)과 말하기 타이머(speakGoal)가 같이 씀.
+   자기소개 = 한국어 질문이 [자기소개]로 시작(data/opic_topics.js 표기) */
+const opicIntro = q => /^\[자기소개\]/.test(q && q.ko || "");
+const opicGoal = q => (opicIntro(q) ? 60 : 90);
 function opicPrompt(q, text) {
+  const len = opicIntro(q) ? "최종본은 8~12문장, 말로 약 1분 분량." : "최종본은 10~14문장, 말로 약 1분 30초 분량.";
   return "내 오픽(OPIc) 모의고사 답변을 첨삭해줘. 나는 이걸로 시험 말하기 연습을 할 거야. 목표 등급은 IH~AL이야.\n\n" +
     "Question: " + q.en + "\n" +
     "My answer:\n" + text.trim() + "\n\n" +
@@ -1494,7 +1499,7 @@ function opicPrompt(q, text) {
     "  · 롤플레이(질문하기·문제 해결): 상대에게 직접 말하는 말투로 — 인사와 상황 설명 → 질문 3~4개 또는 해결 방법 2~3개 → 마무리 인사\n" +
     "- 질문이 묻는 것 중 내 답에 빠진 게 있으면 설명에서 알려줘.\n" +
     "- 미국 원어민이 실제로 말할 때 쓰는 자연스러운 구어체로. 시험장에서 떠올리기 쉽게 어려운 단어보다 자주 쓰는 표현으로.\n" +
-    "- 최종본은 12~16문장, 말로 1분 30초~2분 분량. 한 문장은 한 호흡에 말할 15단어 이하로.\n" +
+    "- " + len + " 한 문장은 한 호흡에 말할 15단어 이하로.\n" +
     "- 주요 수정 이유를 한국어로 짧게 설명해줘.\n\n" +
     "[한국어 번역 규칙]\n" +
     "- 영어 한 문장 = 한국어 한 문장, 같은 번호로 짝을 맞춰줘.\n" +
@@ -1869,7 +1874,7 @@ function renderOpic() {
   } else {
     h += '<div class="now-t">' + w.qs.length + "문항을 다 했어요 🎉<span class=\"now-s\">질문을 누르면 다시 듣고 말해 볼 수 있어요</span></div>";
   }
-  h += '</div><p class="note">질문마다 쓰기 → 첨삭(Claude) → 듣기 → 한글 키워드 보고 말하기</p><div class="sec-t">문제 순서</div><ol class="tl">';
+  h += '</div><p class="note">질문마다 쓰기 → 첨삭(Claude) → 듣기 → 암송 → 한글 키워드 보고 말하기</p><div class="sec-t">문제 순서</div><ol class="tl">';
   w.qs.forEach((qid, i) => {
     const q = Q_BY_ID[qid] || { ko: qid, en: "", level: 1 }, done = qDone(w, qid);
     h += '<li class="' + (done ? "done" : qid === nq ? "cur" : "") + '"><span class="tl-dot">' + (done ? IC.check : i + 1) + "</span>" +
@@ -1917,7 +1922,7 @@ document.querySelector(".modebar").addEventListener("click", e => {
 /* =====================================================================
    질문 진행 화면 (쓰기 → 첨삭 → 듣기 → 암송 → 말하기 → 완료)
    F.view = 보고 있는 단계(지난 단계도 다시 볼 수 있음), 진행은 항목의 step(가장 멀리 간 단계)
-   F.op = 오픽 모의고사 질문(F.ch = 회차 id): 쓰기 → 첨삭 → 듣기 → 말하기 → 완료 — 암송·워밍업·질문 바꾸기 없음(시험용으로 단순하게)
+   F.op = 오픽 모의고사 질문(F.ch = 회차 id): 쓰기 → 첨삭 → 듣기 → 암송 → 말하기(한글 키워드) → 완료 — 워밍업·질문 바꾸기 없음(시험용으로 단순하게, 암송은 2026-10-30에 다시 넣음)
    ===================================================================== */
 const F = { open: false, kind: null, op: false, ch: null, qid: null, gid: null, view: 0, rd: null, rdx: null, rcShown: false, rcAuto: false, rcQ: null, tm: null, tmTimer: 0 };
 const FL = { el: $("flow"), title: $("flowTitle"), steps: $("flowSteps"), body: $("flowBody"), foot: $("flowFoot") };
@@ -1957,7 +1962,7 @@ function openQuestion(qid) {
   FL.body.scrollTop = 0;
 }
 function advance(it, v) {
-  const nx = F.op && v === 2 ? 4 : v + 1;                                     // 오픽: 듣기 → 말하기(암송 건너뜀)
+  const nx = v + 1;
   if (nx > stepIdx(it)) it.step = STEPS[nx];
   if (it.step === "done" && !it.doneOn) it.doneOn = dateKey();
   F.view = nx;
@@ -1981,7 +1986,6 @@ function renderFlow() {
   if (!w) { hideFlow(); return; }
   const q = Q_BY_ID[F.qid], it = itemOf(w, F.qid), n = w.qs.indexOf(F.qid) + 1;
   const prog = stepIdx(it);
-  if (F.op && F.view === 3) F.view = 4;                                      // 오픽엔 암송 단계가 없음
   if (F.warm) {                                                              // 워밍업(3-1): 단계 막대 없이
     FL.title.textContent = "질문 " + n + " / " + w.qs.length + " · 시작 전 워밍업";
     FL.steps.hidden = true;
@@ -1992,7 +1996,7 @@ function renderFlow() {
   }
   FL.title.textContent = "질문 " + n + " / " + w.qs.length + " · " + LEVEL_NAME[q.level];
   FL.steps.hidden = false;
-  FL.steps.innerHTML = STEP_NAME.map((nm, i) => F.op && i === 3 ? "" :
+  FL.steps.innerHTML = STEP_NAME.map((nm, i) =>
     '<button class="st' + (i <= prog ? " reached" : "") + (i === F.view ? " cur" : "") + '" data-view="' + i + '" ' + (i > prog ? "disabled" : "") + ">" + nm + "</button>").join("");
   const qHead = '<p class="q-en">' + esc(q.en) + '</p><p class="q-ko">' + esc(q.ko) + "</p>";
   let body = "", foot = "";
@@ -2028,7 +2032,7 @@ function renderFlow() {
     }
   } else if (v === 2) {                                                      // 듣기: 문장마다 노래방식(단어 탭 = 그 자리부터)
     body = qHead + listenHtml(it);
-    foot = '<button class="go" data-act="next">다 들었어요 · ' + (F.op ? "말하기로" : "암송으로") + IC.arrow + "</button>";
+    foot = '<button class="go" data-act="next">다 들었어요 · 암송으로' + IC.arrow + "</button>";
   } else if (v === 3) {                                                      // 암송: 한글 보고 말하기 → 영어 보기(소리) → 막힘 없이 / 한 번 더(맨 뒤로)
     [body, foot] = reciteView(it, qHead);
   } else if (v === 4) {                                                      // 말하기: ① 한국어 흐름 + 시간 막대
@@ -2118,7 +2122,7 @@ function reciteView(it, qHead) {
     const tried = Object.keys(rc.again).length;
     return [qHead + prog + '<div class="donebox" style="margin-top:22px"><div class="em">👏</div><h2>모든 문장을 막힘 없이 말했어요</h2><p>' +
       (tried ? "한 번 더 한 문장 " + tried + "개도 끝까지 해냈어요" : "한 번에 다 말했어요") + "</p></div>",
-      '<button class="go" data-act="next">다음 · 자유롭게 말하기' + IC.arrow + "</button>" +
+      '<button class="go" data-act="next">다음 · ' + (F.op ? "키워드 보고 말하기" : "자유롭게 말하기") + IC.arrow + "</button>" +
       '<div class="sub-row"><button class="sub-btn" data-act="rc-reset">처음부터 다시 해 보기</button></div>'];
   }
   const i = rc.q[0];
@@ -2176,6 +2180,7 @@ function setupTimer() {
 /* ---------- 말하기 단계 (2-4): ① 한국어 흐름만 보고 내 말로 ----------
    목표 시간 = 최종본 영어 단어 수 × 0.6초(자유롭게 다시 말하는 속도 — 분당 약 100단어), 10초 단위로 반올림, 30초~2분 30초 */
 function speakGoal(it) {
+  if (F.op) return opicGoal(Q_BY_ID[F.qid]);                                  // 오픽: 자기소개 60초, 그 외 90초
   const words = (it.pairs || []).reduce((n, p) => n + wordCount(p.en), 0);
   return Math.max(30, Math.min(150, Math.round(words * 0.6 / 10) * 10));
 }
