@@ -3,7 +3,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-+50TnrscNUxn05NrVjH8Nc23zHh3sfkKQ/kfVT8Htyg='; style-src 'unsafe-inline'; connect-src 'self' https://api.elevenlabs.io; media-src blob:; img-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-O3yBe2bGUTRZB7Z+KQer113hSTWbg2992hPtVQddYrs='; style-src 'unsafe-inline'; connect-src 'self' https://api.elevenlabs.io; media-src blob:; img-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#121417" media="(prefers-color-scheme: dark)">
@@ -377,6 +377,7 @@
   .dv-echo b{ display:block; height:100%; border-radius:3px; background:var(--accent); transform-origin:left; animation:dvEcho linear both; }
   @keyframes dvEcho{ from{ transform:scaleX(0); } to{ transform:scaleX(1); } }
   .lt-mode-n{ margin:8px 2px 0; }
+  .op-nav{ margin:0 0 16px; }
   .dv-ctl{ flex:none; padding:10px max(var(--pad), env(safe-area-inset-right)) calc(env(safe-area-inset-bottom, 0px) + 14px) max(var(--pad), env(safe-area-inset-left)); }
   .dv-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
   .dv-b{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; min-height:72px; border-radius:18px; background:var(--bg-2); font-size:13px; font-weight:650; color:var(--text-2); }
@@ -1835,9 +1836,11 @@ $("chPage").addEventListener("click", e => {
 /* =====================================================================
    오픽 모의고사 화면 (2026-10-30) — 회차 하나 = 문제 순서대로(자기소개부터). 고르기·바꾸기·GPT 대화·복습 없음
    지금 할 일 = 순서대로 첫 번째 안 끝낸 질문. 질문을 누르면 같은 진행 화면(F.op)
+   맨 위 [문제 | 듣기](2026-10-30): 듣기 = 일기 듣기 탭과 같은 드라이브 모드(opicListenHtml → #drive, 저장 ediary.opic.drive.v1)
    ===================================================================== */
 let mode = lsGet(MODE_KEY) === "diary" ? "diary" : "opic";                    // 처음엔 오픽(당분간 오픽 위주)
 const opicTopic = () => OPIC_SETS.find(t => t.id === opic.cur) || OPIC_SETS[0] || null;
+const OP = { view: "q" };                                                     // 오픽 화면 [문제 | 듣기](2026-10-30) — 일기 탭처럼 저장 안 함(열면 문제)
 /* 회차 기록 — make면 없을 때 만듦(질문을 처음 열 때), 아니면 화면용 빈 기록 */
 function opicSet(t, make) {
   if (opic.sets[t.id]) return opic.sets[t.id];
@@ -1851,7 +1854,10 @@ function opicNext(w, qid) {
   return w.qs.slice(k + 1).concat(w.qs.slice(0, Math.max(0, k))).find(id => !qDone(w, id)) || null;
 }
 function renderOpic() {
-  let h = '<div class="head"><h1>오픽 모의고사</h1>' + GEAR_BTN + "</div>";
+  let h = '<div class="head"><h1>오픽 모의고사</h1>' + GEAR_BTN + "</div>" +
+    '<div class="seg op-nav" role="group" aria-label="오픽 화면">' + [["q", "문제"], ["listen", "듣기"]].map(([v, l]) =>
+      '<button data-op-view="' + v + '" aria-pressed="' + (OP.view === v) + '">' + l + "</button>").join("") + "</div>";
+  if (OP.view === "listen") { $("opPage").innerHTML = h + opicListenHtml(); return; }
   const t = opicTopic();
   if (!t) { $("opPage").innerHTML = h + '<p class="empty-t">문제가 없어요. data/opic_topics.js를 확인해 주세요.</p>'; return; }
   const w = opicSet(t, false), nd = w.qs.filter(id => qDone(w, id)).length;
@@ -1894,8 +1900,27 @@ function openOpicQ(qid) {
   renderFlow();
   FL.body.scrollTop = 0;
 }
+/* 오픽 듣기 시작 화면(2026-10-30) — 일기 듣기 탭과 같고 범위만 [이번 회차 | 회차 선택 | 전체 회차] (OD — '듣기 탭' 주석) */
+function opicListenCard(t, on) {
+  const w = opicSet(t, false), nd = w.qs.filter(id => qDone(w, id)).length;
+  return '<span class="tp-emo" aria-hidden="true">' + t.emoji + "</span><span><b>" + esc(t.ko) + "</b><span>질문 " + nd + "/" + w.qs.length + " 완료" + (on ? " · 지금 회차" : "") + "</span></span>";
+}
+function opicListenHtml() {
+  const S = OD, o = S.opts, cur = opicTopic();
+  if (o.scope === "pick" && !OPIC_SETS.some(t => t.id === o.set)) o.set = cur ? cur.id : null;
+  let h = '<p class="note" style="margin:0 2px 14px">다듬은 답변을 차·이어폰으로 이어 들어요. 질문을 먼저 읽고, 그 질문의 최종본 문장을 차례로 읽어요.</p>' +
+    ltScopeSeg(o, [["cur", "이번 회차"], ["pick", "회차 선택"], ["all", "전체 회차"]]);
+  if (o.scope === "cur") h += '<div class="lt-weeks"><div class="lt-wk lt-this">' + (cur ? opicListenCard(cur) : "<span><b>회차가 없어요</b><span>data/opic_topics.js를 확인해 주세요</span></span>") + "</div></div>";
+  if (o.scope === "pick") h += '<div class="lt-weeks">' + OPIC_SETS.map(t => '<button class="lt-wk" data-lt-set="' + esc(t.id) + '" aria-pressed="' + (o.set === t.id) + '">' + opicListenCard(t, t === cur) + "</button>").join("") + "</div>";
+  return h + ltBody(S, "", '들을 문장이 없어요.<br><span style="color:var(--muted);font-size:14px">질문을 첨삭까지 끝내면(듣기 단계) 여기서 이어 들을 수 있어요.</span>');
+}
 $("opPage").addEventListener("click", e => {
   let b;
+  if ((b = e.target.closest("[data-op-view]"))) {
+    if (OP.view !== b.dataset.opView) { OP.view = b.dataset.opView; Player.stop(); buzz(); renderOpic(); $("vOpic").scrollTop = 0; }
+    return;
+  }
+  if (OP.view === "listen") { ltClick(e, OD); return; }
   if ((b = e.target.closest("[data-opset]"))) { opic.cur = b.dataset.opset; save(); buzz(); renderOpic(); return; }
   if ((b = e.target.closest("[data-open-op]"))) openOpicQ(b.dataset.openOp);
 });
@@ -2878,9 +2903,19 @@ $("logPage").addEventListener("click", e => {
    저장 ediary.drive.v1 { opts: { scope: cur|pick|all, ch: 지난 챕터 id, mode: flow|one, rep: 1|3|5 }, pos: { scope, key, label } | null } — key = "챕터 id|질문 id|문장 번호(-1 = 질문)"
      이번 챕터(cur) = 맨 끝 챕터(끝났어도 다음 챕터를 시작하기 전까지), 지난 챕터(pick) = 그 앞 챕터 중 하나.
      옛 저장(2026-10-12 전: scope week, opts.wk·key에 주 키)은 처음 읽을 때 챕터 id로 바꿈(옮긴 챕터의 wk로 찾음)
+   오픽 듣기(2026-10-30): 오픽 화면의 [문제 | 듣기] 중 듣기 — 시작 화면·재생 화면(#drive)·방식·반복은 일기와 똑같고 범위만
+     [이번 회차 | 회차 선택 | 전체 회차(회차 순서)]. 저장은 따로 ediary.opic.drive.v1 { opts: { scope, set: 고른 회차 id, mode, rep }, pos }
+     — key = "회차 id|문제 id|문장 번호". 일기(DD)·오픽(OD)을 '듣기 출처' S로 묶고, 재생 화면은 DV.src(시작할 때 고른 S)를 씀
    ===================================================================== */
-const DRIVE_KEY = "ediary.drive.v1", DV_REPS = [1, 3, 5];
-const DV = (() => {
+const DRIVE_KEY = "ediary.drive.v1", OPIC_DRIVE_KEY = "ediary.opic.drive.v1", DV_REPS = [1, 3, 5];
+/* 방식·반복 값이 이상하면 처음 값으로 */
+function dvFixOpts(opts) {
+  if (!["cur", "pick", "all"].includes(opts.scope)) opts.scope = "cur";
+  if (!["flow", "one"].includes(opts.mode)) opts.mode = "flow";
+  if (!DV_REPS.includes(opts.rep)) opts.rep = 1;
+}
+/* 일기 듣기 출처 */
+const DD = (() => {
   let s = null;
   try { s = JSON.parse(localStorage.getItem(DRIVE_KEY) || "null"); } catch (e) {}
   const opts = Object.assign({ scope: "cur", ch: null, mode: "flow", rep: 1 }, s && s.opts || {});
@@ -2893,16 +2928,28 @@ const DV = (() => {
     pos.key = pos.key.replace(/^[^|]*/, chOf);
     delete pos.wk;
   }
-  if (!["cur", "pick", "all"].includes(opts.scope)) opts.scope = "cur";
-  if (!["flow", "one"].includes(opts.mode)) opts.mode = "flow";
-  if (!DV_REPS.includes(opts.rep)) opts.rep = 1;
+  dvFixOpts(opts);
   if (s && JSON.stringify(s) !== JSON.stringify({ opts, pos })) try { localStorage.setItem(DRIVE_KEY, JSON.stringify({ opts, pos })); } catch (e) {}
-  return { opts, pos,
-    open: false, pl: null, idx: 0, done: false, interrupted: false, rd: null, els: [], ka: null, kaSelf: false, kaWant: false, kaT: 0, pre: null, echo: false, say: "", tapK: -1 };
+  return { id: "diary", key: DRIVE_KEY, opts, pos, album: "영어일기 · 듣기",
+    sets: o => driveChapters(o).map(chapterById).filter(Boolean).map(w => ({ ch: w.id, w, title: chapterTitle(w) })),
+    refresh: () => { if (mode === "diary" && tab === "listen") renderListen(); } };
 })();
-function saveDrive() { try { localStorage.setItem(DRIVE_KEY, JSON.stringify({ opts: DV.opts, pos: DV.pos })); } catch (e) {} }
+/* 오픽 듣기 출처(2026-10-30) — 회차 기록(opic.sets)이 있는 회차만. 이름은 회차 이름(오픽 모의고사 1회) */
+const OD = (() => {
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(OPIC_DRIVE_KEY) || "null"); } catch (e) {}
+  const opts = Object.assign({ scope: "cur", set: null, mode: "flow", rep: 1 }, s && s.opts || {});
+  dvFixOpts(opts);
+  return { id: "opic", key: OPIC_DRIVE_KEY, opts, pos: s && s.pos && typeof s.pos.key === "string" ? s.pos : null, album: "오픽 모의고사 · 듣기",
+    sets: o => (o.scope === "cur" ? [opicTopic()] : o.scope === "pick" ? [OPIC_SETS.find(t => t.id === o.set)] : OPIC_SETS)
+      .filter(t => t && opic.sets[t.id]).map(t => ({ ch: t.id, w: opic.sets[t.id], title: t.ko })),
+    refresh: () => { if (mode === "opic" && OP.view === "listen") renderOpic(); } };
+})();
+/* 재생 화면 상태 — opts·pos는 지금 듣는 출처(src)의 것 */
+const DV = { src: DD, get opts() { return this.src.opts; }, get pos() { return this.src.pos; }, set pos(v) { this.src.pos = v; },
+  open: false, pl: null, idx: 0, done: false, interrupted: false, rd: null, els: [], ka: null, kaSelf: false, kaWant: false, kaT: 0, pre: null, echo: false, say: "", tapK: -1 };
+function saveDrive(S) { S = S || DV.src; try { localStorage.setItem(S.key, JSON.stringify({ opts: S.opts, pos: S.pos })); } catch (e) {} }
 const DV_GAP = 450, DV_GAP_Q = 1200, DV_GAP_P = 700;   // 문장·질문 → 다음 · 새 질문 앞 · 문단 사이(끊지 않고 듣기)
-const chTitleOf = id => { const c = chapterById(id); return c ? chapterTitle(c) : ""; };
 /* 범위에 들어가는 챕터 id(최신이 앞) */
 const pastChapters = () => store.chapters.slice(0, -1).reverse();
 function driveChapters(o) {
@@ -2910,47 +2957,44 @@ function driveChapters(o) {
   if (o.scope === "pick") return pastChapters().some(c => c.id === o.ch) ? [o.ch] : [];   // 지난 챕터 = 맨 끝 챕터 앞의 것만
   return store.chapters.slice().reverse().map(c => c.id);
 }
-const scopeKey = o => o.scope + (o.scope === "pick" ? ":" + (o.ch || "") : "");
-/* 재생 목록: 질문마다 { kind: q, 질문 영어 } + 따라 말하기면 { kind: s, 문장 }, 끊지 않고 듣기면 { kind: p, 문단(음성 하나) }. 블록 = 질문 하나 */
-function buildDrive(o) {
-  if (o.mode !== "one") return buildDriveParas(o);
-  return buildDriveSents(o);
+const scopeKey = o => o.scope + (o.scope === "pick" ? ":" + (o.ch || o.set || "") : "");   // 일기는 ch, 오픽은 set
+/* 재생 목록: 질문마다 { kind: q, 질문 영어 } + 따라 말하기면 { kind: s, 문장 }, 끊지 않고 듣기면 { kind: p, 문단(음성 하나) }. 블록 = 질문 하나
+   S = 듣기 출처(DD 일기 / OD 오픽) — 고른 범위의 { ch: 챕터·회차 id, w: 기록, title } 차례로 */
+function buildDrive(S) {
+  if (S.opts.mode !== "one") return buildDriveParas(S);
+  return buildDriveSents(S);
 }
-function buildDriveParas(o) {
+function buildDriveParas(S) {
   const items = [], blocks = [];
-  driveChapters(o).forEach(ch => {
-    const w = chapterById(ch);
-    if (!w) return;
+  S.sets(S.opts).forEach(({ ch, w, title }) => {
     w.qs.forEach((qid, qi) => {
       const it = w.items[qid], q = Q_BY_ID[qid];
       if (!it || !q || stepIdx(it) < 2) return;
       const pa = paraList(it);
       if (!pa[0] || !pa[0].idx.length) return;
-      blocks.push({ start: items.length, ch, qid, n: qi + 1 });
+      blocks.push({ start: items.length, ch, w, qid, n: qi + 1 });
       const b = blocks.length - 1;
-      items.push({ kind: "q", text: q.en, ko: q.ko, ch, qid, n: qi + 1, b, key: ch + "|" + qid + "|-1" });
-      pa.forEach((p, j) => items.push({ kind: "p", text: p.en, ko: p.ko, ch, qid, n: qi + 1, b, j, total: pa.length, sents: p.idx, key: ch + "|" + qid + "|p" + j }));
+      items.push({ kind: "q", text: q.en, ko: q.ko, ch, title, qid, n: qi + 1, b, key: ch + "|" + qid + "|-1" });
+      pa.forEach((p, j) => items.push({ kind: "p", text: p.en, ko: p.ko, ch, title, qid, n: qi + 1, b, j, total: pa.length, sents: p.idx, key: ch + "|" + qid + "|p" + j }));
     });
   });
-  return { items, blocks };
+  return { items, blocks, S };
 }
-function buildDriveSents(o) {
+function buildDriveSents(S) {
   const items = [], blocks = [];
-  driveChapters(o).forEach(ch => {
-    const w = chapterById(ch);
-    if (!w) return;
+  S.sets(S.opts).forEach(({ ch, w, title }) => {
     w.qs.forEach((qid, qi) => {
       const it = w.items[qid], q = Q_BY_ID[qid];
       if (!it || !q || stepIdx(it) < 2) return;
       const ps = (it.pairs || []).filter(p => p.en);
       if (!ps.length) return;
-      blocks.push({ start: items.length, ch, qid, n: qi + 1 });
+      blocks.push({ start: items.length, ch, w, qid, n: qi + 1 });
       const b = blocks.length - 1;
-      items.push({ kind: "q", text: q.en, ko: q.ko, ch, qid, n: qi + 1, b, key: ch + "|" + qid + "|-1" });
-      ps.forEach((p, i) => items.push({ kind: "s", text: p.en, ko: p.ko, ch, qid, n: qi + 1, b, i, total: ps.length, key: ch + "|" + qid + "|" + i }));
+      items.push({ kind: "q", text: q.en, ko: q.ko, ch, title, qid, n: qi + 1, b, key: ch + "|" + qid + "|-1" });
+      ps.forEach((p, i) => items.push({ kind: "s", text: p.en, ko: p.ko, ch, title, qid, n: qi + 1, b, i, total: ps.length, key: ch + "|" + qid + "|" + i }));
     });
   });
-  return { items, blocks };
+  return { items, blocks, S };
 }
 function driveMinutes(pl, rate, mode, rep) {
   const words = pl.items.reduce((n, it) => n + wordCount(it.text), 0);
@@ -2963,8 +3007,8 @@ function driveMinutes(pl, rate, mode, rep) {
   return Math.max(1, Math.round(sec / 60));
 }
 function dvResumeIdx(pl) {
-  const p = DV.pos;
-  if (!p || p.scope !== scopeKey(DV.opts)) return -1;
+  const p = pl.S.pos;
+  if (!p || p.scope !== scopeKey(pl.S.opts)) return -1;
   const k = pl.items.findIndex(it => it.key === p.key);
   if (k >= 0) return k;
   const [ch, qid, part] = p.key.split("|"), b = pl.blocks.find(x => x.ch === ch && x.qid === qid);
@@ -2974,7 +3018,7 @@ function dvResumeIdx(pl) {
     const m = inQ.find(([it]) => it.kind === "p" && it.sents.includes(+part));
     if (m) return m[1];
   } else if (/^p\d+$/.test(part || "")) {                                    // 문단 위치 → 따라 말하기에선 그 문단의 첫 문장
-    const c = chapterById(ch), src = c && c.items[qid], pa = src ? paraList(src) : [];
+    const src = b.w.items[qid], pa = src ? paraList(src) : [];
     const first = pa[+part.slice(1)] ? pa[+part.slice(1)].idx[0] : -1;
     const m = inQ.find(([x]) => x.kind === "s" && x.i === first);
     if (m) return m[1];
@@ -2983,23 +3027,32 @@ function dvResumeIdx(pl) {
 }
 
 /* ---- 시작 화면 ---- */
-const LT = { pre: null };                       // 미리 받아두기 상태 { state: count|ready|run|done, need, chars, have, done, fail, cancel }
+const LT = { pre: null };                       // 미리 받아두기 상태 { S, scope, state: count|ready|run|done, need, chars, have, done, fail, cancel }
+const ltScope = S => S.id + "/" + scopeKey(S.opts);                          // 미리 받아두기가 어느 출처·범위 것인지
 function ltCard(c, tag) {                                                    // 챕터 카드 안쪽: 이모지 · Chapter 번호. 주제 · 질문 진행
   const nq = c.qs.filter(q => qDone(c, q)).length;
   return '<span class="tp-emo" aria-hidden="true">' + topicOf(c).emoji + "</span><span><b>" + esc(chapterTitle(c)) + "</b><span>질문 " + nq + "/" + c.qs.length + " 완료" + (tag || "") + "</span></span>";
 }
+const ltScopeSeg = (o, list) => '<div class="sec-t" style="margin-top:6px">범위</div><div class="seg" role="group" aria-label="범위">' +
+  list.map(([v, l]) => '<button data-lt-scope="' + v + '" aria-pressed="' + (o.scope === v) + '">' + l + "</button>").join("") + "</div>";
 function renderListen() {
-  const o = DV.opts, cur = lastChapter(), past = pastChapters();
+  const S = DD, o = S.opts, cur = lastChapter(), past = pastChapters();
   if (o.scope === "pick" && !past.some(c => c.id === o.ch)) o.ch = past[0] ? past[0].id : null;
-  const pl = buildDrive(o), ri = dvResumeIdx(pl);
   let h = '<div class="head"><h1>듣기</h1>' + GEAR_BTN + "</div>" +
     '<p class="note" style="margin:0 2px 14px">다듬은 문장을 차·이어폰으로 이어 들어요. 질문을 먼저 읽고, 그 질문의 최종본 문장을 차례로 읽어요.</p>' +
-    '<div class="sec-t" style="margin-top:6px">범위</div><div class="seg" role="group" aria-label="범위">' +
-    [["cur", "이번 챕터"], ["pick", "지난 챕터"], ["all", "전체"]].map(([v, l]) => '<button data-lt-scope="' + v + '" aria-pressed="' + (o.scope === v) + '">' + l + "</button>").join("") + "</div>";
+    ltScopeSeg(o, [["cur", "이번 챕터"], ["pick", "지난 챕터"], ["all", "전체"]]);
   if (o.scope === "cur") h += '<div class="lt-weeks"><div class="lt-wk lt-this">' + (cur ? ltCard(cur, chapterDone(cur) ? " · 끝" : " · 진행 중")
     : "<span><b>아직 시작한 챕터가 없어요</b><span>챕터 탭에서 주제를 골라요</span></span>") + "</div></div>";
   if (o.scope === "pick" && past.length) h += '<div class="lt-weeks">' + past.map(c => '<button class="lt-wk" data-lt-ch="' + esc(c.id) + '" aria-pressed="' + (o.ch === c.id) + '">' + ltCard(c) + "</button>").join("") + "</div>";
-  h += '<div class="sec-t">속도</div><div class="seg" role="group" aria-label="속도">' +
+  const none = o.scope === "pick" && !past.length
+    ? '지난 챕터가 없어요.<br><span style="color:var(--muted);font-size:14px">다음 챕터를 시작하면 지난 챕터 일기를 골라 들을 수 있어요.</span>' : "";
+  $("listenPage").innerHTML = h + ltBody(S, none, '들을 문장이 없어요.<br><span style="color:var(--muted);font-size:14px">질문을 첨삭까지 끝내면(듣기 단계) 여기서 이어 들을 수 있어요.</span>');
+}
+/* 시작 화면 아래쪽(일기·오픽 같음): 속도 · 듣기 방식 · 반복 횟수 · 분량 · 미리 받아두기 · [시작]/[처음부터][이어 듣기]
+   none = 범위에 고를 것이 없을 때 글(있으면 분량 대신), empty = 들을 문장이 없을 때 글 */
+function ltBody(S, none, empty) {
+  const o = S.opts;
+  let h = '<div class="sec-t">속도</div><div class="seg" role="group" aria-label="속도">' +
     RATES.map(r => '<button data-rate="' + r + '" aria-pressed="' + (settings.rate === r) + '">' + rateLabel(r) + "</button>").join("") + "</div>";
   h += '<div class="sec-t">듣기 방식</div><div class="seg" role="group" aria-label="듣기 방식">' +
     [["flow", "끊지 않고 듣기"], ["one", "따라 말하기"]].map(([v, l]) => '<button data-lt-mode="' + v + '" aria-pressed="' + (o.mode === v) + '">' + l + "</button>").join("") + "</div>" +
@@ -3007,27 +3060,20 @@ function renderListen() {
   if (o.mode === "one") h += '<div class="sec-t">반복 횟수</div><div class="seg" role="group" aria-label="반복 횟수">' +
     DV_REPS.map(n => '<button data-lt-rep="' + n + '" aria-pressed="' + (o.rep === n) + '">' + n + "번</button>").join("") + "</div>" +
     (o.rep > 1 ? '<p class="note lt-mode-n">문장마다 듣고 따라 말하기를 ' + o.rep + "번 반복한 뒤 다음 문장으로 가요. 질문은 한 번만 읽어요.</p>" : "");
-  if (o.scope === "pick" && !past.length) {
-    h += '<div class="lt-sum">지난 챕터가 없어요.<br><span style="color:var(--muted);font-size:14px">다음 챕터를 시작하면 지난 챕터 일기를 골라 들을 수 있어요.</span></div>';
-    $("listenPage").innerHTML = h;
-    return;
-  }
-  if (!pl.items.length) {
-    h += '<div class="lt-sum">들을 문장이 없어요.<br><span style="color:var(--muted);font-size:14px">질문을 첨삭까지 끝내면(듣기 단계) 여기서 이어 들을 수 있어요.</span></div>';
-    $("listenPage").innerHTML = h;
-    return;
-  }
+  if (none) return h + '<div class="lt-sum">' + none + "</div>";
+  const pl = buildDrive(S), ri = dvResumeIdx(pl);
+  if (!pl.items.length) return h + '<div class="lt-sum">' + empty + "</div>";
   const nSent = pl.items.reduce((a, x) => a + (x.kind === "s" ? 1 : x.kind === "p" ? x.sents.length : 0), 0), nPara = pl.items.filter(x => x.kind === "p").length;
   h += '<div class="lt-sum">질문 <b>' + pl.blocks.length + "</b>개 · 문장 <b>" + nSent + "</b>개" + (o.mode === "one" ? "" : "(문단 <b>" + nPara + "</b>개)") + " · 약 <b>" + driveMinutes(pl, settings.rate, o.mode, o.rep) + "</b>분</div>";
-  h += '<div class="lt-pre">' + preHtml(pl) + "</div>";
+  h += '<div class="lt-pre">' + preHtml(S) + "</div>";
   h += '<div class="lt-foot">' + (ri >= 0
-    ? '<div class="two"><button class="outline-btn" data-lt-start="0">처음부터</button><button class="go lt-go" data-lt-start="resume"><span class="lt-go-t">' + IC.play + '이어 듣기</span><span class="lt-resume">' + esc(DV.pos.label || "") + "</span></button></div>"
+    ? '<div class="two"><button class="outline-btn" data-lt-start="0">처음부터</button><button class="go lt-go" data-lt-start="resume"><span class="lt-go-t">' + IC.play + '이어 듣기</span><span class="lt-resume">' + esc(S.pos.label || "") + "</span></button></div>"
     : '<button class="go" data-lt-start="0">' + IC.play + "시작</button>") + "</div>";
-  $("listenPage").innerHTML = h;
+  return h;
 }
 /* 미리 받아두기: 이 범위에서 폰에 저장 안 된 문장만 ElevenLabs로 만들어 둠(차에서 끊기지 않게). 키가 없으면 안내만 */
-function preHtml(pl) {
-  const P = LT.pre && LT.pre.scope === scopeKey(DV.opts) ? LT.pre : null;
+function preHtml(S) {
+  const P = LT.pre && LT.pre.scope === ltScope(S) ? LT.pre : null;
   if (!settings.apiKey) return '<p class="note">API 키가 없어서 폰 기본 음성으로 읽어요. 화면이 꺼지면 멈출 수 있어요. 설정에서 키를 넣으면 앱 목소리로 미리 받아 둘 수 있어요.</p>';
   if (!P) return '<button class="outline-btn" data-lt-pre="count">미리 받아두기 · 출발 전에</button>';
   if (P.state === "count") return '<p class="note">저장된 음성을 세는 중…</p>';
@@ -3040,10 +3086,10 @@ function preHtml(pl) {
   return '<p class="note">' + (P.stopped ? "멈췄어요 · " + P.stopped : "다 받아 뒀어요") + " — " + P.done + "개 만듦" + (P.fail ? " · 실패 " + P.fail + "개" : "") + "</p>";
 }
 /* 셀 것 = 질문 + 문장(따라 말하기) + 문단(끊지 않고 듣기) — 어느 방식으로 들어도 끊기지 않게. 문장 하나짜리 문단은 그 문장 음성과 같음 */
-async function preCount() {
-  const sk = scopeKey(DV.opts), sents = buildDriveSents(DV.opts).items, paras = buildDriveParas(DV.opts).items.filter(x => x.kind === "p");
-  const P = LT.pre = { scope: sk, state: "count", need: [], nPara: 0, chars: 0, have: 0, done: 0, fail: 0 };
-  renderListen();
+async function preCount(S) {
+  const sents = buildDriveSents(S).items, paras = buildDriveParas(S).items.filter(x => x.kind === "p");
+  const P = LT.pre = { S, scope: ltScope(S), state: "count", need: [], nPara: 0, chars: 0, have: 0, done: 0, fail: 0 };
+  S.refresh();
   const seen = new Set();
   for (const it of sents.concat(paras)) {
     const t = getScript(it.text).speech;
@@ -3053,13 +3099,13 @@ async function preCount() {
     if (LT.pre !== P) return;
   }
   P.state = "ready";
-  if (tab === "listen") renderListen();
+  S.refresh();
 }
 async function preRun() {
   const P = LT.pre;
   if (!P || P.state !== "ready") return;
   P.state = "run";
-  renderListen();
+  P.S.refresh();
   let i = 0;
   const worker = async () => {
     while (LT.pre === P && P.state === "run" && i < P.need.length) {
@@ -3069,30 +3115,34 @@ async function preRun() {
         if (/키|크레딧|연결/.test(e.message)) { P.stopped = e.message; P.state = "end"; break; }   // 계속해도 실패하는 오류는 바로 멈춤
         P.fail++;
       }
-      if (tab === "listen" && LT.pre === P) renderListen();
+      if (LT.pre === P) P.S.refresh();
     }
   };
   await Promise.all([worker(), worker()]);                                   // 두 문장씩 동시에
   if (LT.pre === P && P.state === "run") P.state = "end";
-  if (tab === "listen" && LT.pre === P) renderListen();
+  if (LT.pre === P) P.S.refresh();
 }
-$("listenPage").addEventListener("click", e => {
-  const t = e.target;
+/* 시작 화면 누르기(일기 듣기 탭·오픽 듣기 같음). 처리했으면 true */
+function ltClick(e, S) {
+  const t = e.target, o = S.opts;
   let b;
-  if ((b = t.closest("[data-lt-scope]"))) { DV.opts.scope = b.dataset.ltScope; saveDrive(); LT.pre = null; buzz(); renderListen(); return; }
-  if ((b = t.closest("[data-lt-ch]"))) { DV.opts.ch = b.dataset.ltCh; saveDrive(); LT.pre = null; buzz(); renderListen(); return; }
-  if ((b = t.closest("[data-lt-mode]"))) { DV.opts.mode = b.dataset.ltMode; saveDrive(); buzz(); renderListen(); return; }
-  if ((b = t.closest("[data-lt-rep]"))) { DV.opts.rep = +b.dataset.ltRep; saveDrive(); buzz(); renderListen(); return; }
-  if ((b = t.closest("[data-rate]"))) { setRate(+b.dataset.rate); renderListen(); return; }
+  if ((b = t.closest("[data-lt-scope]"))) { o.scope = b.dataset.ltScope; saveDrive(S); LT.pre = null; buzz(); S.refresh(); return true; }
+  if ((b = t.closest("[data-lt-ch]"))) { o.ch = b.dataset.ltCh; saveDrive(S); LT.pre = null; buzz(); S.refresh(); return true; }
+  if ((b = t.closest("[data-lt-set]"))) { o.set = b.dataset.ltSet; saveDrive(S); LT.pre = null; buzz(); S.refresh(); return true; }
+  if ((b = t.closest("[data-lt-mode]"))) { o.mode = b.dataset.ltMode; saveDrive(S); buzz(); S.refresh(); return true; }
+  if ((b = t.closest("[data-lt-rep]"))) { o.rep = +b.dataset.ltRep; saveDrive(S); buzz(); S.refresh(); return true; }
+  if ((b = t.closest("[data-rate]"))) { setRate(+b.dataset.rate); S.refresh(); return true; }
   if ((b = t.closest("[data-lt-pre]"))) {
     const a = b.dataset.ltPre;
-    if (a === "count") preCount();
+    if (a === "count") preCount(S);
     else if (a === "run") preRun();
-    else if (a === "cancel" && LT.pre) { LT.pre.state = "end"; LT.pre.stopped = "취소했어요"; renderListen(); }
-    return;
+    else if (a === "cancel" && LT.pre) { LT.pre.state = "end"; LT.pre.stopped = "취소했어요"; S.refresh(); }
+    return true;
   }
-  if ((b = t.closest("[data-lt-start]"))) dvStart(b.dataset.ltStart === "resume");
-});
+  if ((b = t.closest("[data-lt-start]"))) { dvStart(S, b.dataset.ltStart === "resume"); return true; }
+  return false;
+}
+$("listenPage").addEventListener("click", e => { ltClick(e, DD); });
 
 /* ---- 재생 화면 ---- */
 const DVU = { el: $("drive"), pos1: $("dvPos1"), pos2: $("dvPos2"), prev: $("dvPrev"), cur: $("dvCur"), next: $("dvNext"), note: $("dvNote"), toggle: $("dvToggle") };
@@ -3103,7 +3153,7 @@ function dvEl(k) {                                                            //
 const dvUnit = (it, sep) => (it.kind === "q" ? "질문" : (it.kind === "p" ? "문단 " + (it.j + 1) : "문장 " + (it.i + 1)) + sep + it.total);
 function dvLabels(k) {
   const it = DV.pl.items[k];
-  return [chTitleOf(it.ch) + " · 질문 " + it.n, dvUnit(it, " / ") + " · " + (it.b + 1) + " / " + DV.pl.blocks.length + "번째 질문"];
+  return [it.title + " · 질문 " + it.n, dvUnit(it, " / ") + " · " + (it.b + 1) + " / " + DV.pl.blocks.length + "번째 질문"];
 }
 /* 끊지 않고 듣기: 질문 하나를 글로 — 질문 → 문단마다 영어(노래방식) + 그 아래 한국어, 문단 사이 구분선. 지금 읽는 칸(.on)만 진하게 */
 function dvShowBlock(k) {
@@ -3156,12 +3206,13 @@ function dvShow(k) {
 function dvSavePos() {
   if (!DV.pl || DV.done || !DV.pl.items[DV.idx]) return;
   const it = DV.pl.items[DV.idx];
-  DV.pos = { scope: scopeKey(DV.opts), key: it.key, label: chTitleOf(it.ch) + " · 질문 " + it.n + " · " + dvUnit(it, "/") };
+  DV.pos = { scope: scopeKey(DV.opts), key: it.key, label: it.title + " · 질문 " + it.n + " · " + dvUnit(it, "/") };
   saveDrive();
 }
-function dvStart(resume) {
-  const pl = buildDrive(DV.opts);
+function dvStart(S, resume) {                                                 // S = 듣기 출처(DD 일기 / OD 오픽)
+  const pl = buildDrive(S);
   if (!pl.items.length) { toast("들을 문장이 없어요"); return; }
+  DV.src = S;
   DV.pl = pl; DV.els = []; DV.done = false; DV.interrupted = false;
   delete DVU.cur.dataset.blk;
   const unit = DV.opts.mode === "one" ? "문장" : "문단";                    // 끊지 않고 듣기에선 이전·다음 = 문단
@@ -3196,7 +3247,7 @@ function dvHide() {
   $("app").inert = false;
   dvKeepAlive(false);
   dvMediaHandlers(false);
-  if (tab === "listen") renderListen();
+  DV.src.refresh();
 }
 function closeDrive() { if (DV.open && history.state && history.state.drive) history.back(); else dvHide(); }
 function dvGo(k) {
@@ -3308,7 +3359,7 @@ function dvMedia() {
   try {
     const it = DV.pl.items[DV.idx], [a, b] = dvLabels(DV.idx);
     const t = getScript(it.text).speech;                                     // 문단은 길어서 앞부분만
-    ms.metadata = new MediaMetadata({ title: t.length > 90 ? t.slice(0, 88).replace(/\s+\S*$/, "") + " …" : t, artist: a + " · " + b, album: "영어일기 · 듣기" });
+    ms.metadata = new MediaMetadata({ title: t.length > 90 ? t.slice(0, 88).replace(/\s+\S*$/, "") + " …" : t, artist: a + " · " + b, album: DV.src.album });
   } catch (e) {}
 }
 function dvMediaHandlers(on) {
