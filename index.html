@@ -1,9 +1,9 @@
-<!-- 영어일기 — 화면과 동작. 주제·질문은 data/topics.js (규칙은 CLAUDE.md) -->
+<!-- 영어일기 — 화면과 동작. 주제·질문은 data/topics.js, 오픽 모의고사 문제는 data/opic_topics.js (규칙은 CLAUDE.md) -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-RaRx5L4VuqhtxKT9BKbA0a8v5UxvFmV9SxqqxmVudUE='; style-src 'unsafe-inline'; connect-src 'self' https://api.elevenlabs.io; media-src blob:; img-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-ZJxiqJG3aNwcRbMo8MNoMdHH0UYm6BrpFNAvmUyd8wM='; style-src 'unsafe-inline'; connect-src 'self' https://api.elevenlabs.io; media-src blob:; img-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#121417" media="(prefers-color-scheme: dark)">
@@ -83,7 +83,11 @@
   .views{ position:relative; flex:1; min-height:0; }
   .view{ position:absolute; inset:0; overflow-y:auto; overflow-x:hidden; overscroll-behavior-y:contain; }
   .view.off{ visibility:hidden; pointer-events:none; }
-  .page{ padding:calc(env(safe-area-inset-top, 0px) + 14px) max(var(--pad), env(safe-area-inset-right)) 32px max(var(--pad), env(safe-area-inset-left)); }
+  .page{ padding:14px max(var(--pad), env(safe-area-inset-right)) 32px max(var(--pad), env(safe-area-inset-left)); }   /* 위쪽 안전 여백은 모드 막대가 가짐 */
+  /* 모드 막대(맨 위 — 영어일기 | 오픽 모의고사, 2026-10-30). 오픽 모드에선 하단 탭이 없음(화면 하나) */
+  .modebar{ flex:none; padding:calc(env(safe-area-inset-top, 0px) + 8px) max(var(--pad), env(safe-area-inset-right)) 0 max(var(--pad), env(safe-area-inset-left)); background:var(--bg); }
+  .modebar .seg button{ min-height:40px; font-size:15px; }
+  .app.opic .tabbar{ display:none; }
   .tabbar{
     position:relative; z-index:15; flex:none; display:flex;
     height:calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
@@ -219,6 +223,9 @@
   .kw span{ padding:3px 10px; border-radius:999px; background:var(--bg-3); font-size:14px; }
   .conds{ margin:0; padding-left:20px; font-size:15px; line-height:1.6; color:var(--text-2); }
   .todo{ margin-top:14px; padding:14px; border-radius:14px; border:1px dashed var(--faint); font-size:14.5px; color:var(--muted); line-height:1.55; }
+  .kw-seq{ margin:12px 0 0; padding:14px 16px 14px 42px; border-radius:16px; background:var(--accent-soft); border:1px solid var(--accent-line); font-size:19px; font-weight:650; line-height:1.5; }   /* 오픽 말하기: 한글 키워드 순서 */
+  .kw-seq li{ padding:4px 0; }
+  .kw-seq li::marker{ color:var(--accent); font-size:.8em; font-weight:750; }
   .big-flow{ margin-top:12px; padding:18px 16px; border-radius:16px; background:var(--accent-soft); border:1px solid var(--accent-line); font-size:19px; font-weight:650; line-height:1.6; }
   .donebox{ margin-top:6px; text-align:center; }
   .donebox .em{ font-size:44px; }
@@ -383,7 +390,7 @@
   .ls-row .pko{ font-size:calc(14.5px * var(--tz)); }
   .rc-ko{ font-size:calc(22px * var(--tz)); }
   .rc-en-t{ font-size:calc(19px * var(--tz)); }
-  .big-flow{ font-size:calc(19px * var(--tz)); }
+  .big-flow, .kw-seq{ font-size:calc(19px * var(--tz)); }
   .kw-big span{ font-size:calc(17px * var(--tz)); }
   .tz-prev{ margin-top:12px; padding:14px; border-radius:14px; background:var(--bg-2); }
   .tz-prev .en{ font-size:calc(19px * var(--tz)); font-weight:650; line-height:1.45; }
@@ -424,10 +431,12 @@
 </head>
 <body>
 <div class="app" id="app">
+  <div class="modebar"><div class="seg" role="group" aria-label="모드"><button data-mode="diary" aria-pressed="false">영어일기</button><button data-mode="opic" aria-pressed="false">오픽 모의고사</button></div></div>
   <div class="views">
     <section class="view" id="vCh" aria-label="챕터"><div class="page" id="chPage"></div></section>
     <section class="view off" id="vListen" aria-label="듣기"><div class="page" id="listenPage"></div></section>
     <section class="view off" id="vLog" aria-label="기록"><div class="page" id="logPage"></div></section>
+    <section class="view off" id="vOpic" aria-label="오픽 모의고사"><div class="page" id="opPage"></div></section>
   </div>
   <nav class="tabbar" role="tablist" aria-label="화면">
     <button class="tab" role="tab" data-tab="ch" aria-selected="true"><span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h10a1.5 1.5 0 0 1 1.5 1.5v15.5L12 16.5l-6.5 4V5A1.5 1.5 0 0 1 7 3.5z"/></svg></span>챕터</button>
@@ -483,10 +492,12 @@
 <div class="upd" id="upd" hidden role="status"><span>새 버전이 나왔어요</span><button id="updGo">새로 고침</button><button class="upd-x" id="updX" aria-label="나중에">나중에</button></div>
 
 <script src="data/topics.js"></script>
+<script src="data/opic_topics.js"></script>
 <script>
 "use strict";
 /* =====================================================================
    영어일기 — 1단계: 챕터(주제 고르기·타임라인) · 질문 진행(쓰기·첨삭) · GPT 대화 · 기록
+   + 오픽 모의고사 모드(2026-10-30): 맨 위 모드 막대로 바꿈. 같은 질문 진행 화면을 쓰되 쓰기 → 첨삭(Claude) → 듣기 → 말하기만
    저장 키는 모두 "ediary." (한 장 영어 "engcards."와 겹치지 않게)
    ===================================================================== */
 
@@ -497,6 +508,9 @@ TOPICS.forEach(t => {
   TOPIC_BY_ID[t.id] = t;
   (t.questions || []).forEach(q => { Q_BY_ID[q.id] = Object.assign({ topic: t.id }, q); });
 });
+/* 오픽 모의고사 회차(data/opic_topics.js) — 일기 주제(TOPICS)와 따로. 질문만 Q_BY_ID에 같이 넣음(id가 opic-mock-…라 안 겹침) */
+const OPIC_SETS = Array.isArray(window.OPIC_TOPIC_DATA) ? window.OPIC_TOPIC_DATA : [];
+OPIC_SETS.forEach(t => (t.questions || []).forEach(q => { Q_BY_ID[q.id] = Object.assign({ topic: t.id }, q); }));
 const LEVEL_NAME = { 1: "쉬움", 2: "중간", 3: "깊음" };
 const PICK_PLAN = { 3: [1, 1, 1], 4: [1, 2, 1], 5: [2, 2, 1] };   // 질문 개수 → 쉬움·중간·깊음
 const STEPS = ["write", "fix", "listen", "recite", "speak", "done"];
@@ -570,8 +584,34 @@ const store = (() => {
   }
   return { v: 1, count: 4, seq: 0, chapters: [] };
 })();
+/* ---------- 오픽 모의고사 저장 (2026-10-30 — 일기 챕터와 따로) ----------
+   ediary.opic.v1 { v: 1, cur: 고른 회차 id, sets: { 회차 id: { id, qs: [질문 id — data/opic_topics.js 순서], items: { 질문 id: 항목(일기 항목과 같은 모양) }, started(날짜) } } }
+   회차는 처음 질문을 열 때 만듦. 깨진 저장은 .broken에 남기고 빈 것으로 시작. ediary.mode.v1 = "diary" | "opic"(없으면 opic) */
+const OPIC_KEY = "ediary.opic.v1", MODE_KEY = "ediary.mode.v1";
+const opic = (() => {
+  const raw = lsGet(OPIC_KEY);
+  let s = null;
+  if (raw) {
+    try { s = JSON.parse(raw); } catch (e) {}
+    if (!s || typeof s !== "object" || !s.sets || typeof s.sets !== "object") { lsSet(OPIC_KEY + ".broken", raw); s = null; }
+  }
+  const sets = s ? s.sets : {};
+  OPIC_SETS.forEach(t => {                                                     // 질문 순서는 늘 data 파일을 따름
+    const x = sets[t.id];
+    if (x && typeof x === "object") { x.qs = t.questions.map(q => q.id); if (!x.items || typeof x.items !== "object") x.items = {}; }
+  });
+  return { v: 1, cur: s && typeof s.cur === "string" ? s.cur : null, sets };
+})();
+/* 저장: 바뀐 키만 씀(오픽만 쓰는 동안 일기 기록을 다시 쓰지 않게 — 옛 기록을 못 옮겼을 때 빈 챕터 기록을 만들지 않음) */
+const SAVED = { [CH_KEY]: JSON.stringify(store), [OPIC_KEY]: JSON.stringify(opic) };
+function saveKey(k, obj) {
+  const v = JSON.stringify(obj);
+  if (v === SAVED[k]) return;
+  localStorage.setItem(k, v);
+  SAVED[k] = v;
+}
 function save() {
-  try { localStorage.setItem(CH_KEY, JSON.stringify(store)); return true; }
+  try { saveKey(CH_KEY, store); saveKey(OPIC_KEY, opic); return true; }
   catch (e) { toast("저장하지 못했어요 (저장 공간을 확인해 주세요)"); return false; }
 }
 let saveTimer = null;
@@ -1440,6 +1480,42 @@ function fixPrompt(q, text) {
     "2. …\n" +
     "3. …";
 }
+/* 오픽 모의고사 첨삭 프롬프트(2026-10-30) — Claude에 붙여넣음. 결과 형식은 일기와 같은 [최종본] EN/KO 짝 + [흐름](한글 키워드를 → 로) —
+   바꾸면 parseFix도 같이. [더 말하고 싶을 때]·[키워드]·[조건]은 안 받음(시험용으로 단순하게) */
+function opicPrompt(q, text) {
+  return "내 오픽(OPIc) 모의고사 답변을 첨삭해줘. 나는 이걸로 시험 말하기 연습을 할 거야. 목표 등급은 IH~AL이야.\n\n" +
+    "Question: " + q.en + "\n" +
+    "My answer:\n" + text.trim() + "\n\n" +
+    "[첨삭 방법]\n" +
+    "- 내 답을 재료로 질문 유형에 맞는 순서로 다시 짜줘. 내 이야기에 없는 사실은 지어내지 마.\n" +
+    "  · 자기소개·묘사·습관: 첫 문장에서 바로 답 → 구체적인 모습이나 하는 일 → 이유나 느낌 → 한 문장 마무리\n" +
+    "  · 과거 경험: 언제·어디서 → 무슨 일이 있었는지 → 어떻게 했는지 → 지금 드는 생각\n" +
+    "  · 비교·변화: 예전 → 지금 → 달라진 이유 → 내 생각\n" +
+    "  · 롤플레이(질문하기·문제 해결): 상대에게 직접 말하는 말투로 — 인사와 상황 설명 → 질문 3~4개 또는 해결 방법 2~3개 → 마무리 인사\n" +
+    "- 질문이 묻는 것 중 내 답에 빠진 게 있으면 설명에서 알려줘.\n" +
+    "- 미국 원어민이 실제로 말할 때 쓰는 자연스러운 구어체로. 시험장에서 떠올리기 쉽게 어려운 단어보다 자주 쓰는 표현으로.\n" +
+    "- 최종본은 12~16문장, 말로 1분 30초~2분 분량. 한 문장은 한 호흡에 말할 15단어 이하로.\n" +
+    "- 주요 수정 이유를 한국어로 짧게 설명해줘.\n\n" +
+    "[한국어 번역 규칙]\n" +
+    "- 영어 한 문장 = 한국어 한 문장, 같은 번호로 짝을 맞춰줘.\n" +
+    "- 정보를 빼거나 더하지 마. 시간·숫자·시제·뉘앙스까지 살려서, 한국어만 보고도 그 영어 문장을 다시 만들 수 있게.\n" +
+    "- 번역투 말고 실제로 할 법한 한국어로. 말투는 반말 구어체 하나로 통일.\n\n" +
+    "[한글 키워드 규칙]\n" +
+    "- 최종본을 말하는 순서대로 떠올릴 수 있게, 한두 문장마다 짧은 한국어 키워드(명사구) 하나씩을 → 로 이어서 한 줄로. 6~10개.\n" +
+    "  (예: 내 방 책상 → 3년 전 이사 때 산 것 → 원목, 넓은 상판 → 매일 아침 커피 → 일과 공부 → 제일 오래 머무는 곳)\n\n" +
+    "설명이 끝나면 마지막에 아래 형식으로 정리해줘. 내가 복사하기 쉽게 [최종본]부터 끝까지 전부 코드블록(```) 하나 안에 넣어줘.\n" +
+    "[최종본]\n" +
+    "1. EN: 고친 영어 문장\n" +
+    "   KO: 한국어\n" +
+    "2. EN: …\n" +
+    "   KO: …\n" +
+    "[흐름]\n" +
+    "키워드 → 키워드 → …";
+}
+const promptFor = (q, text) => (F.op ? opicPrompt : fixPrompt)(q, text);   // 지금 진행 화면에 맞는 첨삭 프롬프트
+const aiName = () => (F.op ? "Claude" : "ChatGPT");
+/* 오픽 말하기: [흐름]을 → 로 나눈 한글 키워드(순서대로) */
+const opicKeys = it => String(it.flow || "").split(/\s*(?:→|->)\s*/).map(x => x.trim()).filter(Boolean);
 /* GPT 대화 프롬프트: 그 시점까지 최종본이 있는 질문의 글을 넣음 */
 function gptPrompt(w) {
   const t = TOPIC_BY_ID[w.topic];
@@ -1544,7 +1620,7 @@ function applyPaste(it, text) {
   it.keywords = r.keywords;
   it.conds = r.conds;
   if (r.extras.length) it.extras = r.extras; else delete it.extras;         // 더 말하고 싶을 때 — 없는 답(예전 형식)이면 칸을 안 만듦
-  it.paraWant = true;                                                      // 새 답변 → 듣기 단계에서 음성을 만들 때 문단 음성도 같이(paraEnsure)
+  if (!F.op) it.paraWant = true;                                           // 새 답변 → 듣기 단계에서 음성을 만들 때 문단 음성도 같이(paraEnsure). 오픽은 듣기 탭이 없어서 안 만듦
   save();
   return true;
 }
@@ -1603,6 +1679,7 @@ function switchTab(name) {
   tab = name;
   document.querySelectorAll(".tab").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === name ? "true" : "false"));
   [["ch", "vCh"], ["listen", "vListen"], ["log", "vLog"]].forEach(([n, id]) => $(id).classList.toggle("off", n !== name));
+  $("vOpic").classList.add("off");
   if (name === "ch") renderChapter();
   if (name === "log") renderLog();
   if (name === "listen") renderListen();
@@ -1751,12 +1828,100 @@ $("chPage").addEventListener("click", e => {
 });
 
 /* =====================================================================
+   오픽 모의고사 화면 (2026-10-30) — 회차 하나 = 문제 순서대로(자기소개부터). 고르기·바꾸기·GPT 대화·복습 없음
+   지금 할 일 = 순서대로 첫 번째 안 끝낸 질문. 질문을 누르면 같은 진행 화면(F.op)
+   ===================================================================== */
+let mode = lsGet(MODE_KEY) === "diary" ? "diary" : "opic";                    // 처음엔 오픽(당분간 오픽 위주)
+const opicTopic = () => OPIC_SETS.find(t => t.id === opic.cur) || OPIC_SETS[0] || null;
+/* 회차 기록 — make면 없을 때 만듦(질문을 처음 열 때), 아니면 화면용 빈 기록 */
+function opicSet(t, make) {
+  if (opic.sets[t.id]) return opic.sets[t.id];
+  const x = { id: t.id, qs: t.questions.map(q => q.id), items: {}, started: dateKey() };
+  if (make) opic.sets[t.id] = x;
+  return x;
+}
+/* 다음 질문: 이 질문 뒤에서 아직 안 끝낸 것, 없으면 앞에서 */
+function opicNext(w, qid) {
+  const k = w.qs.indexOf(qid);
+  return w.qs.slice(k + 1).concat(w.qs.slice(0, Math.max(0, k))).find(id => !qDone(w, id)) || null;
+}
+function renderOpic() {
+  let h = '<div class="head"><h1>오픽 모의고사</h1>' + GEAR_BTN + "</div>";
+  const t = opicTopic();
+  if (!t) { $("opPage").innerHTML = h + '<p class="empty-t">문제가 없어요. data/opic_topics.js를 확인해 주세요.</p>'; return; }
+  const w = opicSet(t, false), nd = w.qs.filter(id => qDone(w, id)).length;
+  if (OPIC_SETS.length > 1) {                                                  // 회차가 여럿이면 고르기
+    h += '<div class="tp-list" style="margin-bottom:14px">' + OPIC_SETS.map(x => {
+      const xw = opicSet(x, false);
+      return '<button class="tp" data-opset="' + esc(x.id) + '" aria-pressed="' + (x === t) + '"><span class="tp-emo" aria-hidden="true">' + x.emoji + "</span>" +
+        '<span class="tp-body"><span class="tp-ko">' + esc(x.ko) + '</span><span class="tp-en">' + esc(x.en) + '</span><span class="tp-ex">완료 ' +
+        xw.qs.filter(id => qDone(xw, id)).length + "/" + xw.qs.length + '</span></span><span class="tp-chk" aria-hidden="true">' + IC.check + "</span></button>";
+    }).join("") + "</div>";
+  }
+  h += '<div class="wk-topic"><span class="tp-emo" aria-hidden="true">' + t.emoji + '</span><span><b style="display:block;font-size:17px">' + esc(t.ko) +
+    '</b><span style="font-size:13.5px;color:var(--muted)">' + esc(t.en) + '</span></span><span class="wk-prog">완료<br>' + nd + "/" + w.qs.length + "</span></div>";
+  const nq = w.qs.find(id => !qDone(w, id));
+  h += '<div class="now-card"><div class="now-k">지금 할 일</div>';
+  if (nq) {
+    const q = Q_BY_ID[nq], n = w.qs.indexOf(nq) + 1, on = qStarted(w, nq);
+    h += '<div class="now-t">' + esc(q.ko) + '<span class="now-s">질문 ' + n + " · " + (on ? STEP_NAME[stepIdx(w.items[nq])] + " 단계부터 이어서" : "쓰기부터") + "</span></div>" +
+      '<button class="go" data-open-op="' + esc(nq) + '">' + (on ? "이어서 하기" : "질문 " + n + " 시작") + IC.arrow + "</button>";
+  } else {
+    h += '<div class="now-t">' + w.qs.length + "문항을 다 했어요 🎉<span class=\"now-s\">질문을 누르면 다시 듣고 말해 볼 수 있어요</span></div>";
+  }
+  h += '</div><p class="note">질문마다 쓰기 → 첨삭(Claude) → 듣기 → 한글 키워드 보고 말하기</p><div class="sec-t">문제 순서</div><ol class="tl">';
+  w.qs.forEach((qid, i) => {
+    const q = Q_BY_ID[qid] || { ko: qid, en: "", level: 1 }, done = qDone(w, qid);
+    h += '<li class="' + (done ? "done" : qid === nq ? "cur" : "") + '"><span class="tl-dot">' + (done ? IC.check : i + 1) + "</span>" +
+      '<button class="tl-main" data-open-op="' + esc(qid) + '"><span class="tl-k">질문 ' + (i + 1) + " · " + qStatus(w, qid) + '<span class="lv">' + LEVEL_NAME[q.level] + "</span></span>" +
+      '<span class="tl-t">' + esc(q.ko) + '</span><span class="tl-e">' + esc(q.en) + "</span></button></li>";
+  });
+  $("opPage").innerHTML = h + "</ol>";
+}
+function openOpicQ(qid) {
+  const t = opicTopic();
+  if (!t || !Q_BY_ID[qid] || !t.questions.some(q => q.id === qid)) return;
+  const w = opicSet(t, true);
+  if (opic.cur !== t.id) opic.cur = t.id;
+  Object.assign(F, { kind: "q", op: true, ch: w.id, qid, gid: null });
+  enterQuestion(w, qid);
+  showFlow();
+  renderFlow();
+  FL.body.scrollTop = 0;
+}
+$("opPage").addEventListener("click", e => {
+  let b;
+  if ((b = e.target.closest("[data-opset]"))) { opic.cur = b.dataset.opset; save(); buzz(); renderOpic(); return; }
+  if ((b = e.target.closest("[data-open-op]"))) openOpicQ(b.dataset.openOp);
+});
+/* 모드 바꾸기 — 일기 쪽은 하던 탭 그대로 */
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll("[data-mode]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === m)));
+  $("app").classList.toggle("opic", m === "opic");
+  if (m === "diary") { switchTab(tab); return; }
+  ["vCh", "vListen", "vLog"].forEach(id => $(id).classList.add("off"));
+  $("vOpic").classList.remove("off");
+  renderOpic();
+}
+document.querySelector(".modebar").addEventListener("click", e => {
+  const b = e.target.closest("[data-mode]");
+  if (!b) return;
+  if (b.dataset.mode === mode) { const v = document.querySelector(".view:not(.off)"); if (v) v.scrollTop = 0; return; }
+  Player.stop();
+  lsSet(MODE_KEY, b.dataset.mode);
+  buzz();
+  setMode(b.dataset.mode);
+});
+
+/* =====================================================================
    질문 진행 화면 (쓰기 → 첨삭 → 듣기 → 암송 → 말하기 → 완료)
    F.view = 보고 있는 단계(지난 단계도 다시 볼 수 있음), 진행은 항목의 step(가장 멀리 간 단계)
+   F.op = 오픽 모의고사 질문(F.ch = 회차 id): 쓰기 → 첨삭 → 듣기 → 말하기 → 완료 — 암송·워밍업·질문 바꾸기 없음(시험용으로 단순하게)
    ===================================================================== */
-const F = { open: false, kind: null, ch: null, qid: null, gid: null, view: 0, rd: null, rdx: null, rcShown: false, rcAuto: false, rcQ: null, tm: null, tmTimer: 0 };
+const F = { open: false, kind: null, op: false, ch: null, qid: null, gid: null, view: 0, rd: null, rdx: null, rcShown: false, rcAuto: false, rcQ: null, tm: null, tmTimer: 0 };
 const FL = { el: $("flow"), title: $("flowTitle"), steps: $("flowSteps"), body: $("flowBody"), foot: $("flowFoot") };
-function fChapter() { return chapterById(F.ch); }   // 진행 화면이 연 챕터
+function fChapter() { return F.op ? opic.sets[F.ch] || null : chapterById(F.ch); }   // 진행 화면이 연 챕터(오픽이면 회차)
 function showFlow() {
   if (!F.open) { F.open = true; history.pushState({ flow: 1 }, ""); }
   FL.el.hidden = false;
@@ -1773,6 +1938,7 @@ function hideFlow() {
   F.open = false;
   FL.el.hidden = true;
   $("app").inert = false;
+  if (mode === "opic") { renderOpic(); return; }
   if (tab === "ch") renderChapter();
   if (tab === "log") renderLog();
 }
@@ -1784,14 +1950,14 @@ addEventListener("keydown", e => { if (e.key !== "Escape") return; if (ST.open) 
 function openQuestion(qid) {
   const w = curChapter();
   if (!w || !Q_BY_ID[qid]) return;
-  Object.assign(F, { kind: "q", ch: w.id, qid, gid: null });
+  Object.assign(F, { kind: "q", op: false, ch: w.id, qid, gid: null });
   enterQuestion(w, qid);
   showFlow();
   renderFlow();
   FL.body.scrollTop = 0;
 }
 function advance(it, v) {
-  const nx = v + 1;
+  const nx = F.op && v === 2 ? 4 : v + 1;                                     // 오픽: 듣기 → 말하기(암송 건너뜀)
   if (nx > stepIdx(it)) it.step = STEPS[nx];
   if (it.step === "done" && !it.doneOn) it.doneOn = dateKey();
   F.view = nx;
@@ -1815,6 +1981,7 @@ function renderFlow() {
   if (!w) { hideFlow(); return; }
   const q = Q_BY_ID[F.qid], it = itemOf(w, F.qid), n = w.qs.indexOf(F.qid) + 1;
   const prog = stepIdx(it);
+  if (F.op && F.view === 3) F.view = 4;                                      // 오픽엔 암송 단계가 없음
   if (F.warm) {                                                              // 워밍업(3-1): 단계 막대 없이
     FL.title.textContent = "질문 " + n + " / " + w.qs.length + " · 시작 전 워밍업";
     FL.steps.hidden = true;
@@ -1825,7 +1992,7 @@ function renderFlow() {
   }
   FL.title.textContent = "질문 " + n + " / " + w.qs.length + " · " + LEVEL_NAME[q.level];
   FL.steps.hidden = false;
-  FL.steps.innerHTML = STEP_NAME.map((nm, i) =>
+  FL.steps.innerHTML = STEP_NAME.map((nm, i) => F.op && i === 3 ? "" :
     '<button class="st' + (i <= prog ? " reached" : "") + (i === F.view ? " cur" : "") + '" data-view="' + i + '" ' + (i > prog ? "disabled" : "") + ">" + nm + "</button>").join("");
   const qHead = '<p class="q-en">' + esc(q.en) + '</p><p class="q-ko">' + esc(q.ko) + "</p>";
   let body = "", foot = "";
@@ -1835,37 +2002,45 @@ function renderFlow() {
     body = qHead + '<textarea class="wr" id="fText" placeholder="영어로 써 보세요. 틀려도 괜찮아요 — 첨삭에서 고쳐요." spellcheck="false">' + esc(it.text || "") + "</textarea>" +
       '<div class="wc" id="fWc">' + wc + " 단어</div>";
     foot = '<button class="go" data-act="written" ' + (wc ? "" : "disabled") + ">다 썼어요 · 첨삭 받기" + IC.arrow + "</button>" +
-      (qStarted(w, F.qid) ? "" : '<div class="sub-row"><button class="sub-btn" data-act="swap">' + IC.swap + "다른 질문으로 바꾸기</button></div>");
+      (qStarted(w, F.qid) || F.op ? "" : '<div class="sub-row"><button class="sub-btn" data-act="swap">' + IC.swap + "다른 질문으로 바꾸기</button></div>");
   } else if (v === 1) {                                                      // 첨삭
     const has = (it.pairs || []).some(p => p.en);
     if (!has) {
       const copied = !!it.copied;
       body = qHead + '<ol class="how">' +
         '<li class="' + (copied ? "ok" : "on") + '"><b>첨삭 프롬프트 복사</b> — 내 글이 들어 있어요</li>' +
-        '<li class="' + (copied ? "on" : "") + '">ChatGPT에 붙여넣고 보내기</li>' +
+        '<li class="' + (copied ? "on" : "") + '">' + aiName() + "에 붙여넣고 보내기</li>" +
         '<li>답 맨 아래 코드블록의 <b>복사</b> 버튼 누르기</li>' +
         '<li>돌아와서 <b>클립보드에서 붙여넣기</b></li></ol>' +
         (it.raw ? '<div class="warn"><b>형식을 읽지 못했어요.</b> 답의 맨 아래 코드블록([최종본]부터 끝까지)을 복사했는지 확인해 주세요. 붙여넣은 글은 아래 칸에 남아 있어요.</div>' : "") +
         '<details class="more"' + (it.raw ? " open" : "") + '><summary>클립보드 버튼이 안 되면 — 여기에 길게 눌러 붙여넣기</summary>' +
         '<textarea class="man" id="fMan" placeholder="여기에 붙여넣으면 바로 읽어요">' + esc(it.raw || "") + "</textarea></details>" +
-        '<details class="more"><summary>프롬프트 미리 보기</summary><div class="pre">' + esc(fixPrompt(q, it.text || "")) + "</div></details>";
+        '<details class="more"><summary>프롬프트 미리 보기</summary><div class="pre">' + esc(promptFor(q, it.text || "")) + "</div></details>";
       foot = copied
         ? '<button class="go" data-act="paste">' + IC.paste + "클립보드에서 붙여넣기</button>" +
           '<div class="sub-row"><button class="sub-btn" data-act="copy">' + IC.copy + "프롬프트 다시 복사</button></div>"
         : '<button class="go" data-act="copy">' + IC.copy + "첨삭 프롬프트 복사</button>";
     } else {
-      body = qHead + checkHtml(it);
+      body = qHead + checkHtml(it, F.op);
       foot = '<button class="go" data-act="fixed">이대로 저장 · 듣기로' + IC.arrow + "</button>" +
         '<div class="sub-row"><button class="sub-btn" data-act="repaste">' + IC.paste + "다시 붙여넣기</button>" +
         '<button class="sub-btn" data-act="copy">' + IC.copy + "프롬프트 다시 복사</button></div>";
     }
   } else if (v === 2) {                                                      // 듣기: 문장마다 노래방식(단어 탭 = 그 자리부터)
     body = qHead + listenHtml(it);
-    foot = '<button class="go" data-act="next">다 들었어요 · 암송으로' + IC.arrow + "</button>";
+    foot = '<button class="go" data-act="next">다 들었어요 · ' + (F.op ? "말하기로" : "암송으로") + IC.arrow + "</button>";
   } else if (v === 3) {                                                      // 암송: 한글 보고 말하기 → 영어 보기(소리) → 막힘 없이 / 한 번 더(맨 뒤로)
     [body, foot] = reciteView(it, qHead);
   } else if (v === 4) {                                                      // 말하기: ① 한국어 흐름 + 시간 막대
     [body, foot] = speakView(it, qHead);
+  } else if (F.op) {                                                         // 오픽 완료: 다음 = 아직 안 끝낸 다음 질문
+    const nq = opicNext(w, F.qid);
+    body = '<div class="donebox"><div class="em">🎉</div><h2>질문 ' + n + " 완료</h2><p>" + esc(q.ko) + "</p></div>" +
+      '<div class="box"><div class="box-t">최종본</div>' + (it.pairs || []).filter(p => p.en).map(p =>
+        '<p style="margin:6px 0 0;font-size:15.5px;line-height:1.55">' + esc(p.en) + '<br><span style="color:var(--muted);font-size:14px">' + esc(p.ko) + "</span></p>").join("") + "</div>";
+    foot = nq
+      ? '<button class="go" data-act="go-next">다음: 질문 ' + (w.qs.indexOf(nq) + 1) + IC.arrow + "</button>"
+      : '<button class="go" data-act="close">모의고사 화면으로</button>';
   } else {                                                                   // 완료
     const nx = nextEntry(w);
     body = '<div class="donebox"><div class="em">🎉</div><h2>질문 ' + n + " 완료</h2><p>" + esc(q.ko) + "</p></div>" +
@@ -2005,9 +2180,12 @@ function speakGoal(it) {
   return Math.max(30, Math.min(150, Math.round(words * 0.6 / 10) * 10));
 }
 function speakView(it, qHead) {
-  const ctx = "speak:" + F.qid, state = timerState(ctx);
-  const body = qHead + '<div class="box-t" style="margin-top:20px">이 흐름만 보고 내 말로 다시 말해 보세요</div>' +
-    '<div class="big-flow">' + (it.flow ? esc(it.flow) : "흐름이 없어요 — 첨삭 결과에 [흐름]이 있는지 확인해 주세요") + "</div>" +
+  const ctx = "speak:" + F.qid, state = timerState(ctx), keys = F.op ? opicKeys(it) : [];
+  const cue = F.op && keys.length > 1                                          // 오픽: 한글 키워드를 순서대로(번호 목록)
+    ? '<div class="box-t" style="margin-top:20px">한글 키워드를 순서대로 보며 영어로 말해 보세요</div><ol class="kw-seq">' + keys.map(k => "<li>" + esc(k) + "</li>").join("") + "</ol>"
+    : '<div class="box-t" style="margin-top:20px">이 흐름만 보고 내 말로 다시 말해 보세요</div>' +
+      '<div class="big-flow">' + (it.flow ? esc(it.flow) : "흐름이 없어요 — 첨삭 결과에 [흐름]이 있는지 확인해 주세요") + "</div>";
+  const body = qHead + cue +
     timerHtml(ctx, speakGoal(it), it.spoke ? "지난번 " + fmtSec(it.spoke.sec) + " 말했어요 · 다시 해도 돼요" : "[말하기 시작]을 누르고 말해요. 시간이 막대로 보여요",
       '<div id="recLive">' + recLiveHtml() + "</div>") +
     '<div id="recBox">' + recBoxHtml() + "</div>" +
@@ -2029,7 +2207,7 @@ function speakAct(it, act) {
 
 /* ---------- 말하기 녹음 (2026-10-08): [말하기 시작] = 타이머 + 폰 마이크 녹음, [다 말했어요] = 녹음 멈춤 → [다시 듣기] · [파일로 저장]
    녹음은 이 화면에 있는 동안만(메모리 — ediary.*·IndexedDB 어디에도 안 남김, 사용자 결정). 화면을 닫거나 다른 단계로 가거나
-   [다시 말해 보기]를 누르면 버림. 형식: m4a(audio/mp4)가 되면 m4a, 아니면 webm. 파일 이름 = 영어일기_날짜_질문n_시분.확장자.
+   [다시 말해 보기]를 누르면 버림. 형식: m4a(audio/mp4)가 되면 m4a, 아니면 webm. 파일 이름 = 영어일기_날짜_질문n_시분.확장자(오픽은 오픽_…).
    마이크 권한 거절·지원 안 함이면 녹음 없이 말하기만(타이머·기록 그대로) + 안내 한 줄. 말하기 단계에만(워밍업·챕터 복습엔 없음) */
 const REC_TYPES = ["audio/mp4;codecs=mp4a.40.2", "audio/mp4", "audio/webm;codecs=opus", "audio/webm"];
 const REC = { ctx: "", state: "", gen: 0 };                                   // state: "" | wait(마이크 기다림) | on(녹음 중) | save(정리 중) | done | off(녹음 없음 + note)
@@ -2050,7 +2228,7 @@ function recStart(ctx, n) {
   recDrop();
   const d = appNow();
   REC.ctx = ctx;
-  REC.base = "영어일기_" + dateKey(d) + "_질문" + n + "_" + pad2(d.getHours()) + pad2(d.getMinutes());   // 파일 이름엔 날짜(폰에서 정렬·겹침 방지) — 화면엔 안 보임
+  REC.base = (F.op ? "오픽_" : "영어일기_") + dateKey(d) + "_질문" + n + "_" + pad2(d.getHours()) + pad2(d.getMinutes());   // 파일 이름엔 날짜(폰에서 정렬·겹침 방지) — 화면엔 안 보임
   if (!recOk()) { REC.state = "off"; REC.note = "이 브라우저는 녹음을 지원하지 않아서 녹음 없이 진행해요"; return; }
   REC.state = "wait";
   const my = REC.gen;
@@ -2303,7 +2481,7 @@ FL.body.addEventListener("click", e => {
 });
 const lsTapOk = tapGuard(FL.body);
 /* 첨삭 결과 확인: 문장 짝(한글은 바로 고칠 수 있음) + 개수 경고 + 상황 묘사 */
-function checkHtml(it) {
+function checkHtml(it, op) {                                                // op = 오픽(흐름 = 한글 키워드만 봄)
   const ps = it.pairs || [];
   const nEn = ps.filter(p => p.en).length, nKo = ps.filter(p => p.ko).length;
   const noKo = ps.filter(p => p.en && !p.ko).length, noEn = ps.filter(p => !p.en).length;
@@ -2329,6 +2507,11 @@ function checkHtml(it) {
       xs.map((p, i) => '<li class="pair' + (p.ko ? "" : " bad") + '"><span class="pn">+' + (i + 1) + '</span><div class="pb"><div class="pe">' + esc(p.en) + "</div>" +
         '<textarea class="pk' + (p.ko ? "" : " empty") + '" data-xko="' + i + '" rows="1" placeholder="한글을 써 주세요" aria-label="더 말하고 싶을 때 ' + (i + 1) + '번 한글">' + esc(p.ko) + "</textarea></div></li>").join("") +
       "</ul></div>";
+  }
+  if (op) {
+    h += '<div class="box"><div class="box-t">한글 키워드 · 말하기 순서</div><div class="flow">' + (it.flow ? esc(it.flow) : "—") + "</div></div>";
+    if (!it.flow) h += '<div class="warn">[흐름](한글 키워드)이 없어요. 답의 코드블록을 끝까지 복사했는지 확인해 주세요. (없어도 저장은 돼요)</div>';
+    return h;
   }
   const miss = [!it.flow && "흐름", !(it.keywords || []).length && "키워드", !(it.conds || []).length && "조건"].filter(Boolean);
   h += '<div class="box"><div class="box-t">상황 묘사 · 흐름</div><div class="flow">' + (it.flow ? esc(it.flow) : "—") + "</div></div>" +
@@ -2383,10 +2566,10 @@ async function onFlowAct(e) {
     return;
   }
   if (act === "copy") {
-    const ok = await copyText(fixPrompt(q, it.text || ""));
+    const ok = await copyText(promptFor(q, it.text || ""));
     if (!ok) { toast("복사하지 못했어요 — 프롬프트 미리 보기를 길게 눌러 복사해 주세요"); return; }
     it.copied = true; save(); buzz();
-    toast("복사했어요 — ChatGPT에 붙여넣어 보내세요");
+    toast("복사했어요 — " + aiName() + "에 붙여넣어 보내세요");
     renderFlow(); return;
   }
   if (act === "paste" || act === "repaste") {
@@ -2428,12 +2611,13 @@ function openQuestionIn(qid) {
 function enterQuestion(w, qid) {
   const it = itemOf(w, qid);
   F.view = Math.min(stepIdx(it), STEPS.length - 1);
-  F.warmPrev = warmFrom(w, qid);
+  F.warmPrev = F.op ? null : warmFrom(w, qid);                               // 오픽은 워밍업 없음
   F.warm = !!F.warmPrev;
   F.warmSec = null;
 }
 /* 진행 화면이 열린 채로 다음 항목으로(완료 화면·GPT 화면의 [다음: …]) */
 function goNext(w) {
+  if (F.op) { const nq = opicNext(w, F.qid); if (nq) openQuestionIn(nq); else closeFlow(); return; }
   const nx = nextEntry(w);
   if (!nx) { closeFlow(); return; }
   if (nx.kind === "q") openQuestionIn(nx.qid);
@@ -2460,7 +2644,7 @@ function openGptIn(gid) { Object.assign(F, { kind: "gpt", gid, qid: null }); ren
 function openGpt(gid) {
   const w = curChapter();
   if (!w) return;
-  Object.assign(F, { kind: "gpt", ch: w.id, gid, qid: null });
+  Object.assign(F, { kind: "gpt", op: false, ch: w.id, gid, qid: null });
   showFlow();
   renderGpt();
   FL.body.scrollTop = 0;
@@ -2564,7 +2748,7 @@ function openReview() {
   const w = curChapter();
   if (!w) return;
   if (!reviewOpen(w)) { toast("챕터 복습은 질문과 GPT 대화를 다 하면 열려요"); return; }
-  Object.assign(F, { kind: "review", ch: w.id, qid: null, gid: null });
+  Object.assign(F, { kind: "review", op: false, ch: w.id, qid: null, gid: null });
   showFlow();
   renderFlow();
   FL.body.scrollTop = 0;
@@ -3284,7 +3468,8 @@ ST.body.addEventListener("click", e => {
 /* ---------- 앱으로 돌아오면 챕터 화면을 새로(나갈 땐 바로 저장) ---------- */
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState !== "visible") { if (saveTimer) { clearTimeout(saveTimer); save(); } return; }
-  if (!F.open && tab === "ch") renderChapter();
+  if (F.open) return;
+  if (mode === "opic") renderOpic(); else if (tab === "ch") renderChapter();
 });
 
 /* ---------- 앱 업데이트(5단계) ----------
@@ -3305,8 +3490,8 @@ function setupSW() {
 }
 if (location.protocol === "https:") setupSW();
 
-/* ---------- 시작: 항상 챕터 탭 ---------- */
-switchTab("ch");
+/* ---------- 시작: 지난번 모드(일기면 챕터 탭) ---------- */
+setMode(mode);
 </script>
 </body>
 </html>
