@@ -3,7 +3,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-WJYYZDUpAPSdj9yE9UZgugX6MOMTkyrlR935zhRL/Mo='; style-src 'unsafe-inline'; connect-src 'self' https://api.elevenlabs.io; media-src blob:; img-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-n0j5w8KAiF5BXDjz4feU4bkswDe53We70Ia5PXTI2Os='; style-src 'unsafe-inline'; connect-src 'self' https://api.elevenlabs.io; media-src blob:; img-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#121417" media="(prefers-color-scheme: dark)">
@@ -571,6 +571,13 @@ TOPICS.forEach(t => {
 /* 오픽 모의고사 회차(data/opic_topics.js) — 일기 주제(TOPICS)와 따로. 질문만 Q_BY_ID에 같이 넣음(id가 opic-mock-…라 안 겹침) */
 const OPIC_SETS = Array.isArray(window.OPIC_TOPIC_DATA) ? window.OPIC_TOPIC_DATA : [];
 OPIC_SETS.forEach(t => (t.questions || []).forEach(q => { Q_BY_ID[q.id] = Object.assign({ topic: t.id }, q); }));
+/* 목록에서 뺀 일기 주제(2026-11-17) — 옛 챕터의 제목·질문 글만 보여 줌. TOPICS·TOPIC_BY_ID에는 안 넣음(고르기에 안 나오게), 질문은 겹치지 않을 때만 Q_BY_ID에 */
+const RETIRED_BY_ID = {};
+(Array.isArray(window.RETIRED_TOPIC_DATA) ? window.RETIRED_TOPIC_DATA : []).forEach(t => {
+  if (!t || !t.id || TOPIC_BY_ID[t.id]) return;
+  RETIRED_BY_ID[t.id] = t;
+  (t.questions || []).forEach(q => { if (!Q_BY_ID[q.id]) Q_BY_ID[q.id] = Object.assign({ topic: t.id }, q); });
+});
 const LEVEL_NAME = { 1: "쉬움", 2: "중간", 3: "깊음" };
 const PICK_PLAN = { 3: [1, 1, 1], 4: [1, 2, 1], 5: [2, 2, 1] };   // 질문 개수 → 쉬움·중간·깊음
 const STEPS = ["write", "fix", "listen", "recite", "speak", "done"];
@@ -581,7 +588,6 @@ const D7_LONG = ["① 한글 정리", "② 내 영어", "③ 첨삭 프롬프트
 const D7_NO = ["①", "②", "③", "④", "⑤", "⑥", "⑦"];
 const D7_DONE = 7;                                                           // 완료 화면(F.view)
 const TYPE_KEY = { "통과": "pass", "단어수정": "word", "구조수정": "struct" };
-const RECOMMEND_N = 5;
 const HANGUL_RE = /[가-힣]/;
 
 /* ---------- 앱의 '지금'과 '오늘' (하루는 자정 기준) — 날짜는 저장·정렬에만 쓰고 화면에는 안 보임 ----------
@@ -674,6 +680,14 @@ function d7Fix(it) {
   if (raw && lsGet(CH_BACKUP_KEY) == null) lsSet(CH_BACKUP_KEY, raw);         // 옮기기 전 원본 그대로
   if (raw) lsSet(CH_KEY, JSON.stringify(store));
 })();
+/* 지금 챕터의 주제가 고르기 목록(TOPIC_DATA)에 없으면(뺀 주제·모르는 id) 그 챕터는 마친 것으로 봄 → 챕터 탭은 새 주제 고르기 (2026-11-17)
+   기록·듣기의 글은 그대로. 저장 맨 앞이라 lsGet/lsSet만 씀, 백업 키는 건드리지 않음 */
+(() => {
+  const c = store.chapters[store.chapters.length - 1];
+  if (!TOPICS.length || !c || c.ended || (c.review && c.review.doneOn) || TOPIC_BY_ID[c.topic]) return;   // 주제 파일을 못 읽었을 땐 안 건드림
+  c.ended = dateKey();
+  if (lsGet(CH_KEY)) lsSet(CH_KEY, JSON.stringify(store));
+})();
 /* ---------- 오픽 모의고사 저장 (2026-10-30 — 일기 챕터와 따로) ----------
    ediary.opic.v1 { v: 1, cur: 고른 회차 id, sets: { 회차 id: { id, qs: [질문 id — data/opic_topics.js 순서], items: { 질문 id: 항목(일기 항목과 같은 모양) }, started(날짜) } } }
    회차는 처음 질문을 열 때 만듦. 깨진 저장은 .broken에 남기고 빈 것으로 시작. ediary.mode.v1 = "diary" | "opic"(없으면 opic) */
@@ -713,7 +727,7 @@ addEventListener("pagehide", () => { if (saveTimer) { clearTimeout(saveTimer); s
 const chapterById = id => store.chapters.find(c => c.id === id) || null;
 const lastChapter = () => store.chapters[store.chapters.length - 1] || null;
 const chapterDone = c => !!(c.ended || (c.review && c.review.doneOn));
-function curChapter() { const c = lastChapter(); return c && !chapterDone(c) ? c : null; }
+function curChapter() { const c = lastChapter(); return c && !chapterDone(c) && TOPIC_BY_ID[c.topic] ? c : null; }
 const chapterNo = c => store.chapters.indexOf(c) + 1;
 /* 같은 주제를 몇 번째로 하는지(2회차부터 제목에 붙임) */
 function chapterRound(c) {
@@ -721,9 +735,9 @@ function chapterRound(c) {
   for (const x of store.chapters) { if (x.topic === c.topic) n++; if (x === c) break; }
   return n;
 }
-const topicOf = c => TOPIC_BY_ID[c.topic] || { emoji: "📝", ko: c.topic, en: "" };
+const topicOf = c => TOPIC_BY_ID[c.topic] || RETIRED_BY_ID[c.topic] || { emoji: "📝", ko: String(c.topic || ""), en: "" };
 const roundTag = c => { const r = chapterRound(c); return r > 1 ? " (" + r + "회차)" : ""; };
-const chapterTitle = c => "Chapter " + chapterNo(c) + ". " + topicOf(c).ko + roundTag(c);   // 예: Chapter 3. 교대근무 생활
+const chapterTitle = c => "Chapter " + chapterNo(c) + ". " + topicOf(c).ko + roundTag(c);   // 예: Chapter 3. AI와 일자리
 function itemOf(w, qid) {
   if (!w.items[qid]) w.items[qid] = { step: "write", text: "" };
   return w.items[qid];
@@ -1457,7 +1471,7 @@ function createReader(o) {
 /* =====================================================================
    챕터 만들기 · 추천 주제 · 질문 고르기
    ===================================================================== */
-/* 다음 챕터 추천 주제 5개: 이번 달 주제 먼저, 최근 4챕터에서 한 주제는 뒤로, 챕터 번호마다 정해진 순서(고르는 동안 늘 같음) */
+/* 다음 챕터 고르기 목록(지금 주제 전부): 이번 달 주제 먼저, 최근 4챕터에서 한 주제는 뒤로, 챕터 번호마다 정해진 순서(고르는 동안 늘 같음) */
 function recommendTopics() {
   const month = dateKey().slice(0, 7);
   const recent = new Set(store.chapters.slice(-4).map(c => c.topic));
@@ -1467,7 +1481,7 @@ function recommendTopics() {
     TOPICS.filter(t => t.month !== month && !recent.has(t.id)),
     TOPICS.filter(t => recent.has(t.id))
   ];
-  return groups.flatMap(g => shuffle(g, r)).slice(0, RECOMMEND_N);
+  return groups.flatMap(g => shuffle(g, r));
 }
 /* 이 주제의 지난 챕터에서 한 질문 id(같은 주제 2회차부터 — 안 한 질문을 먼저 고르려고). but = 빼고 볼 챕터 */
 function usedQuestions(topicId, but) {
@@ -1638,7 +1652,7 @@ const aiName = () => (F.op ? "Claude" : "ChatGPT");
 const opicKeys = it => String(it.flow || "").split(/\s*(?:→|->)\s*/).map(x => x.trim()).filter(Boolean);
 /* GPT 대화 프롬프트: 그 시점까지 최종본이 있는 질문의 글을 넣음 */
 function gptPrompt(w) {
-  const t = TOPIC_BY_ID[w.topic];
+  const t = topicOf(w);
   const done = w.qs.filter(qid => itPairs(w.items[qid]).some(p => p.en));
   let s = "너는 내 영어 말하기 연습 상대야. 지금부터 20~30분 동안 영어로만 음성 대화를 하자.\n" +
     "- 주제: " + t.en + " (" + t.ko + ")\n" +
@@ -1649,7 +1663,7 @@ function gptPrompt(w) {
   if (done.length) {
     s += "\n[내 글]\n";
     done.forEach((qid, i) => {
-      s += "\nQ" + (i + 1) + ". " + Q_BY_ID[qid].en + "\n" + itPairs(w.items[qid]).filter(p => p.en).map(p => p.en).join(" ") + "\n";
+      s += "\nQ" + (i + 1) + ". " + (Q_BY_ID[qid] || { en: "" }).en + "\n" + itPairs(w.items[qid]).filter(p => p.en).map(p => p.en).join(" ") + "\n";
     });
   } else {
     s += "\n(아직 다듬은 글이 없어. 이 주제로 가볍게 대화해줘.)\n";
@@ -3600,13 +3614,13 @@ function buildDriveParas(S) {
   const items = [], blocks = [];
   S.sets(S.opts).forEach(({ ch, w, title }) => {
     w.qs.forEach((qid, qi) => {
-      const it = w.items[qid], q = Q_BY_ID[qid];
-      if (!it || !q || !hasFinal(it)) return;
+      const it = w.items[qid], q = Q_BY_ID[qid];                         // 질문 글을 못 찾아도 최종본은 들음(질문 줄만 뺌)
+      if (!it || !hasFinal(it)) return;
       const pa = paraList(it);
       if (!pa[0] || !pa[0].idx.length) return;
       blocks.push({ start: items.length, ch, w, qid, n: qi + 1 });
       const b = blocks.length - 1;
-      items.push({ kind: "q", text: q.en, ko: q.ko, ch, title, qid, n: qi + 1, b, key: ch + "|" + qid + "|-1" });
+      if (q) items.push({ kind: "q", text: q.en, ko: q.ko, ch, title, qid, n: qi + 1, b, key: ch + "|" + qid + "|-1" });
       pa.forEach((p, j) => items.push({ kind: "p", text: p.en, ko: p.ko, ch, title, qid, n: qi + 1, b, j, total: pa.length, sents: p.idx, key: ch + "|" + qid + "|p" + j }));
     });
   });
@@ -3616,13 +3630,13 @@ function buildDriveSents(S) {
   const items = [], blocks = [];
   S.sets(S.opts).forEach(({ ch, w, title }) => {
     w.qs.forEach((qid, qi) => {
-      const it = w.items[qid], q = Q_BY_ID[qid];
-      if (!it || !q || !hasFinal(it)) return;
+      const it = w.items[qid], q = Q_BY_ID[qid];                         // 질문 글을 못 찾아도 최종본은 들음(질문 줄만 뺌)
+      if (!it || !hasFinal(it)) return;
       const ps = itPairs(it).filter(p => p.en);
       if (!ps.length) return;
       blocks.push({ start: items.length, ch, w, qid, n: qi + 1 });
       const b = blocks.length - 1;
-      items.push({ kind: "q", text: q.en, ko: q.ko, ch, title, qid, n: qi + 1, b, key: ch + "|" + qid + "|-1" });
+      if (q) items.push({ kind: "q", text: q.en, ko: q.ko, ch, title, qid, n: qi + 1, b, key: ch + "|" + qid + "|-1" });
       ps.forEach((p, i) => items.push({ kind: "s", text: p.en, ko: p.ko, ch, title, qid, n: qi + 1, b, i, total: ps.length, key: ch + "|" + qid + "|" + i }));
     });
   });

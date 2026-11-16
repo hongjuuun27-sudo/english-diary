@@ -1,8 +1,91 @@
 /* 주제·질문 (규칙은 CLAUDE.md '주제·질문 작성 규칙')
+   TOPIC_DATA = 지금 고르기 목록. RETIRED_TOPIC_DATA = 목록에서 뺀 주제(옛 기록의 제목·질문용, 고르기에는 안 씀)
    주제: { id, month: "YYYY-MM"(그 달 추천), emoji, ko, en, questions }
    질문: { id(주제id-번호, 절대 안 바꿈), level: 1 쉬움(사실) | 2 중간(경험·감정) | 3 깊음(의견·가정), en, ko(반말) }
-   주제마다 쉬움 3 · 중간 3 · 깊음 2 (질문 5개를 고르면 2·2·1을 뽑음) */
+   주제마다 쉬움 3 · 중간 3 · 깊음 2 (질문 5개를 고르면 2·2·1을 뽑음). 뺀 주제의 id는 다시 쓰지 않음 */
 window.TOPIC_DATA = [
+  {
+    id: "aijob", month: "2026-11", emoji: "🤖", ko: "AI와 일자리", en: "AI and my job",
+    questions: [
+      { id: "aijob-1", level: 1, en: "Do you use any AI tools in your daily life? Which ones, and for what?", ko: "일상에서 AI 도구 쓰는 거 있어? 뭐 쓰고, 뭐 할 때 써?" },
+      { id: "aijob-2", level: 1, en: "At work, which parts of your job are pretty routine, and which parts need your judgment?", ko: "일에서 반복되는 일과, 네 판단이 필요한 일은 어떻게 달라?" },
+      { id: "aijob-3", level: 1, en: "Have your coworkers or your company said anything about AI lately? What did they say?", ko: "요즘 동료들이나 회사에서 AI 얘기 나온 적 있어? 뭐라고 했어?" },
+      { id: "aijob-4", level: 2, en: "Have you ever used AI for something work-related and thought, wait, that's actually pretty good? Or the opposite?", ko: "일 관련해서 AI를 써 봤는데, 어 이거 괜찮네 싶었던 적 있어? 아니면 반대였던 적?" },
+      { id: "aijob-5", level: 2, en: "When you hear that AI might replace factory or equipment jobs, how does that sit with you?", ko: "공장이나 설비 일을 AI가 대체할 수도 있다는 얘기 들으면, 기분이 어때?" },
+      { id: "aijob-6", level: 2, en: "Has AI already changed the way you study English or get through a shift? How?", ko: "영어 공부하거나 근무 버틸 때, AI 때문에 달라진 점 있어? 어떻게?" },
+      { id: "aijob-7", level: 3, en: "Do you think a job like yours — a semiconductor equipment engineer working shifts — will still look the same in ten years? Why or why not?", ko: "네 일, 반도체 설비 엔지니어에 교대근무, 십 년 뒤에도 지금이랑 비슷할 것 같아? 왜?" },
+      { id: "aijob-8", level: 3, en: "If your company asked you to train an AI system to do part of your job, would you do it? Why or why not?", ko: "회사가 네 일 일부를 AI에게 가르치라고 하면 할 거야? 왜?" }
+    ]
+  },
+  {
+    id: "phone", month: "2026-11", emoji: "📱", ko: "스마트폰·SNS", en: "Could I live without my phone?",
+    questions: [
+      { id: "phone-1", level: 1, en: "Walk me through the first twenty minutes after you wake up. How soon do you pick up your phone?", ko: "아침에 눈 뜨고 스무 분 동안 뭐 해? 폰은 얼마나 빨리 집어?" },
+      { id: "phone-2", level: 1, en: "Which apps do you open the most in a day, and what do you usually do in them?", ko: "하루에 제일 많이 여는 앱이 뭐야? 거기서 보통 뭐 해?" },
+      { id: "phone-3", level: 1, en: "When you're on a night shift, or right before you sleep, how do you use your phone?", ko: "야간 근무 중이거나 잠들기 직전에 폰은 어떻게 써?" },
+      { id: "phone-4", level: 2, en: "Have you ever tried to cut back on your phone or social media? How did that go?", ko: "폰이나 SNS 줄여 보려고 했던 적 있어? 어땠어?" },
+      { id: "phone-5", level: 2, en: "When do you feel like your phone is actually helping you, and when does it just drain you?", ko: "폰이 진짜 도움이 될 때는 언제고, 그냥 에너지만 뺄 때는 언제야?" },
+      { id: "phone-6", level: 2, en: "How does your girlfriend feel about how much you use your phone? Have you two ever talked about it?", ko: "여자친구는 네가 폰 쓰는 거 어떻게 생각해? 둘이 그 얘기 해 본 적 있어?" },
+      { id: "phone-7", level: 3, en: "Do you think you could go a week without your smartphone? What would be the hardest part?", ko: "일주일 동안 스마트폰 없이 살 수 있을 것 같아? 제일 힘든 게 뭐일 것 같아?" },
+      { id: "phone-8", level: 3, en: "If social media disappeared tomorrow, how do you think your life — and people's lives in Korea — would change?", ko: "내일 SNS가 전부 사라진다면, 네 삶이랑 한국 사람들 삶은 어떻게 달라질 것 같아?" }
+    ]
+  },
+  {
+    id: "money", month: "2026-11", emoji: "💰", ko: "돈과 행복", en: "Money and happiness",
+    questions: [
+      { id: "money-1", level: 1, en: "What do you usually spend money on in a normal month, besides rent and food?", ko: "월세랑 밥값 말고, 평범한 한 달에 돈은 보통 어디에 써?" },
+      { id: "money-2", level: 1, en: "Growing up, what did your family say about money? Anything that still sticks with you?", ko: "어렸을 때 집에서 돈 얘기를 어떻게 했어? 지금까지 남는 말 있어?" },
+      { id: "money-3", level: 1, en: "What's the last thing you bought that really made you happy? What was it?", ko: "최근에 산 것 중에 진짜 기뻤던 게 뭐야? 뭐였어?" },
+      { id: "money-4", level: 2, en: "Was there a time in your life when money was tight? How did that feel?", ko: "돈 빠듯했던 시기 있어? 그때 기분이 어땠어?" },
+      { id: "money-5", level: 2, en: "When you get a bonus or some extra money, what do you usually do with it? How do you decide?", ko: "보너스나 여윳돈이 생기면 보통 어떻게 해? 그건 어떻게 정해?" },
+      { id: "money-6", level: 2, en: "Do you and your girlfriend ever talk about money? What's that like?", ko: "여자친구랑 돈 얘기 해? 그 얘기하는 거 어때?" },
+      { id: "money-7", level: 3, en: "People say money can't buy happiness. Do you agree with that, or do you think that's easy to say when you already have enough?", ko: "돈으로 행복을 살 수 없다고들 하잖아. 그 말 동의해, 아니면 이미 넉넉한 사람이 하기 쉬운 말 같아?" },
+      { id: "money-8", level: 3, en: "If your salary doubled tomorrow, what would actually change in your life — and what wouldn't?", ko: "내일 연봉이 두 배가 되면, 네 삶에서 진짜 달라지는 게 뭐고, 안 달라지는 건 뭐야?" }
+    ]
+  },
+  {
+    id: "fourday", month: "2026-11", emoji: "🗓️", ko: "주 4일제·워라밸", en: "A four-day week",
+    questions: [
+      { id: "fourday-1", level: 1, en: "What does a typical work week look like for you right now — how many days, and how long are the shifts?", ko: "지금 일주일에 며칠, 한 번 근무하면 몇 시간 일하는 거야?" },
+      { id: "fourday-2", level: 1, en: "When you have a day off after a stretch of shifts, how do you usually spend it?", ko: "근무 며칠 하고 쉬는 날 생기면, 그날을 보통 어떻게 보내?" },
+      { id: "fourday-3", level: 1, en: "At your company, do people talk about work-life balance, or is that not really a thing on the shop floor?", ko: "회사에서는 워라밸 얘기를 해, 아니면 현장에서는 그런 말 잘 안 나와?" },
+      { id: "fourday-4", level: 2, en: "When was the last time work got in the way of something you really wanted to do? What happened?", ko: "최근에 일 때문에 정말 하고 싶었던 걸 못 한 적 있어? 무슨 일이었어?" },
+      { id: "fourday-5", level: 2, en: "How does shift work mess with your time with your girlfriend, your family, or just time for yourself?", ko: "교대근무 때문에 여자친구, 가족, 아니면 혼자만의 시간이 어떻게 꼬여?" },
+      { id: "fourday-6", level: 2, en: "Have you ever thought about leaving shift work for a regular nine-to-five? What stopped you, or what would it take?", ko: "교대근무 말고 일반 출퇴근으로 옮겨 볼까 생각해 본 적 있어? 뭐가 막았고, 뭐가 있어야 옮길 것 같아?" },
+      { id: "fourday-7", level: 3, en: "Some countries and companies are trying a four-day workweek. Do you think that could actually work at a semiconductor plant like yours?", ko: "어떤 나라랑 회사는 주 4일제를 해 보잖아. 네 같은 반도체 공장에서도 그게 될 것 같아?" },
+      { id: "fourday-8", level: 3, en: "If you only had to work four days a week, how would your life change — and do you think you'd actually be happier?", ko: "일주일에 나흘만 일하면 네 삶이 어떻게 달라질 것 같아? 그래서 더 행복해질 것 같아?" }
+    ]
+  },
+  {
+    id: "marriage", month: "2026-11", emoji: "💍", ko: "결혼·저출산", en: "Marriage and having kids",
+    questions: [
+      { id: "marriage-1", level: 1, en: "Among your friends and coworkers, how many people your age are married, or have kids?", ko: "친구들이나 회사 동기 중에, 네 또래에서 결혼한 사람이랑 아이 있는 사람이 얼마나 돼?" },
+      { id: "marriage-2", level: 1, en: "These days in Korea, what do people around you say about getting married or having kids?", ko: "요즘 한국에서, 네 주변 사람들은 결혼이나 아이 갖는 거 가지고 뭐라고 해?" },
+      { id: "marriage-3", level: 1, en: "Have you and your girlfriend ever talked about the future — living together, getting married, that kind of thing? Just in general.", ko: "여자친구랑 앞으로 살림이나 결혼 같은 얘기, 해 본 적 있어? 가볍게라도." },
+      { id: "marriage-4", level: 2, en: "What's the hardest part, in your view, about dating or thinking about marriage when you work shifts?", ko: "교대근무 하면서 연애하거나 결혼 생각하면, 제일 힘든 게 뭐야?" },
+      { id: "marriage-5", level: 2, en: "When you hear that Korea's birth rate is one of the lowest in the world, what's the first thing that comes to mind?", ko: "한국 출산율이 세계에서도 제일 낮다는 얘기 들으면, 제일 먼저 뭐가 떠올라?" },
+      { id: "marriage-6", level: 2, en: "Do your parents ever bring up marriage or grandkids? How does that sit with you?", ko: "부모님이 결혼이나 손주 얘기를 꺼내? 그때 기분이 어때?" },
+      { id: "marriage-7", level: 3, en: "Why do you think so many people in Korea are putting off marriage and kids? Is it mostly money, work, or something else?", ko: "한국에서 결혼이랑 출산을 미루는 사람이 왜 이렇게 많다고 생각해? 돈이 제일 커, 일이 커, 아니면 다른 거야?" },
+      { id: "marriage-8", level: 3, en: "If the government could change just one thing to make it easier to get married or have a kid, what should it be — and would that actually change your own plans?", ko: "정부가 결혼이나 아이 갖기 쉽게 딱 한 가지만 바꿀 수 있으면 뭘 바꿔야 해? 그래서 네 계획도 달라질 것 같아?" }
+    ]
+  },
+  {
+    id: "climate", month: "2026-11", emoji: "🌍", ko: "기후 변화", en: "Climate change and my daily life",
+    questions: [
+      { id: "climate-1", level: 1, en: "Have the summers or winters where you live felt different in the last few years? What have you noticed?", ko: "네가 사는 데 여름이랑 겨울이 몇 년 사이에 달라진 것 같아? 뭐가 느껴져?" },
+      { id: "climate-2", level: 1, en: "At the plant, do you guys do anything around energy or the environment — or is that not something you hear about on the floor?", ko: "공장에서는 에너지나 환경 관련해서 하는 거 있어? 아니면 현장에선 그런 얘기 잘 안 나와?" },
+      { id: "climate-3", level: 1, en: "In your daily life, do you do anything on purpose that's supposed to be better for the environment? What is it?", ko: "평소에 환경에 좀 낫다고 해서 일부러 하는 거 있어? 뭐 해?" },
+      { id: "climate-4", level: 2, en: "Was there a day recently when the weather really got to you — like a heat wave or a sudden downpour? What was that like?", ko: "최근에 날씨 때문에 진짜 고생한 날 있어? 폭염이나 갑자기 폭우 같은 거. 어땠어?" },
+      { id: "climate-5", level: 2, en: "When you see news about climate change, do you feel worried, or does it feel far away from your life?", ko: "기후 변화 뉴스 보면 걱정돼, 아니면 내 삶과는 좀 먼 얘기처럼 느껴져?" },
+      { id: "climate-6", level: 2, en: "Semiconductor plants use a lot of power and water. Does that ever cross your mind when you're at work?", ko: "반도체 공장이 전기랑 물을 엄청 쓰잖아. 근무할 때 그 생각이 날 때가 있어?" },
+      { id: "climate-7", level: 3, en: "Who do you think should do more about climate change — governments, companies like Samsung, or regular people? Why?", ko: "기후 변화는 누가 더 나서야 한다고 생각해? 정부, 삼성 같은 회사, 아니면 일반 사람들? 왜?" },
+      { id: "climate-8", level: 3, en: "If the government asked factories to cut power use, even if it slowed production, would you be for that? How would that hit a job like yours?", ko: "정부가 공장에 전기 줄이라고 하면, 생산이 좀 줄어들어도 찬성할 거야? 네 같은 일에는 어떤 영향이 있을까?" }
+    ]
+  }
+];
+
+/* 목록에서 뺀 주제(2026-11-17) — 옛 기록이 제목·질문을 보여 주기 위함. 고르기 목록에는 안 씀. id·질문은 그대로 둠 */
+window.RETIRED_TOPIC_DATA = [
   {
     id: "shift", month: "2026-10", emoji: "🌙", ko: "교대근무 생활", en: "Life on shifts",
     questions: [
