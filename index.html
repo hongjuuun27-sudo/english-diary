@@ -3,7 +3,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-n0j5w8KAiF5BXDjz4feU4bkswDe53We70Ia5PXTI2Os='; style-src 'unsafe-inline'; connect-src 'self' https://api.elevenlabs.io; media-src blob:; img-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-mlcx8WVLIJadIQ8XFgeohtDC2lemhiilt8wW+KzKQwI='; style-src 'unsafe-inline'; connect-src 'self' https://api.elevenlabs.io; media-src blob:; img-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#121417" media="(prefers-color-scheme: dark)">
@@ -456,6 +456,12 @@
   .s7-v.ko{ color:var(--text); font-weight:600; }
   .s7-v.fin{ font-size:calc(17px * var(--tz)); font-weight:650; color:var(--text); }
   .s7-v.why{ font-size:14.5px; color:var(--muted); }
+  .s7-sec{ margin-top:12px; padding-top:10px; border-top:1px dashed var(--line); font-size:13px; font-weight:750; color:var(--muted); }
+  .s7-nat{ margin-top:12px; padding:10px 12px 12px; border-radius:12px; background:var(--accent-soft); }
+  .s7-sec.nat{ margin-top:0; padding-top:0; border-top:0; color:var(--accent); }
+  .s7-v.nat{ margin-top:4px; font-size:calc(16.5px * var(--tz)); font-weight:600; color:var(--text); }
+  .ver7{ margin-top:14px; }
+  .ver7 button{ min-height:48px; }
   .df-add{ border-radius:4px; background:var(--yel-soft); box-shadow:0 0 0 2px var(--yel-soft); color:var(--text); }
   .df-del{ color:var(--red); text-decoration:line-through; text-decoration-thickness:1.5px; opacity:.85; }
   .l7-row{ cursor:pointer; }
@@ -832,7 +838,7 @@ const SETTINGS_KEY = "ediary.settings.v1";
 const TEXT_ZOOMS = [1, 1.25, 1.5, 1.8];                                     // 글자 크기: 기본 / 크게 / 더 크게 / 아주 크게(한 장 영어와 같은 단계)
 const LS_RATES = [0.75, 1, 1.25];                                            // 일기 ⑥ 듣기 속도(2026-11-17 — 듣기 탭·암송 속도 rate와 따로)
 const VOICE_ID_RE = /^[A-Za-z0-9]{10,40}$/;                                   // 직접 넣는 Voice ID(2026-11-17)
-const DEFAULTS = { apiKey: "", voice: "iP95p4xoKVk53GoZ742B", voiceId: "", model: "eleven_v4", rate: 1, textZoom: 1, lsRate: 1, lsRep: false };
+const DEFAULTS = { apiKey: "", voice: "iP95p4xoKVk53GoZ742B", voiceId: "", model: "eleven_v4", rate: 1, textZoom: 1, lsRate: 1, lsRep: false, ver7: "fin" };
 const settings = (() => {
   try {
     const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");
@@ -845,6 +851,7 @@ const settings = (() => {
     if (typeof m.voiceId !== "string" || !VOICE_ID_RE.test(m.voiceId)) m.voiceId = "";
     if (!LS_RATES.includes(m.lsRate)) m.lsRate = 1;
     m.lsRep = m.lsRep === true;
+    if (m.ver7 !== "nat") m.ver7 = "fin";                                       // ⑥·⑦ 문장 버전(첨삭본 / 원어민 버전)
     return m;
   } catch (e) { return Object.assign({}, DEFAULTS); }
 })();
@@ -1762,15 +1769,19 @@ function applyPaste(it, text) {
 /* =====================================================================
    일기 첨삭 프롬프트 · 결과 읽기 (2026-11-17 — 일기 7단계. 오픽은 위 opicPrompt·parseFix 그대로)
    d7Prompt: 지시문(사용자가 정한 글 — 한 글자도 바꾸지 않음) + 질문(영어·한글) + 한글 원문 + 내 영어
-   답 형식: ### 로 나눈 블록마다 KO / MY / FINAL / TYPE(통과·단어수정·구조수정) / WHY
+   답 형식: ### 로 나눈 블록마다 KO / MY / FINAL / TYPE(통과·단어수정·구조수정) / WHY / NATIVE(원어민이라면 — 2026-11-17 추가, 없는 옛 답도 읽음)
    ===================================================================== */
-const D7_INSTR = "아래 한글 원문과 내가 쓴 영어를 문장 단위로 짝지어 첨삭해 줘. 최종본은 원어민이 실제로 말할 때 쓰는 자연스러운 구어체로, 내 문장을 최대한 살려서 고쳐 줘. KO는 최종본과 의미가 정확히 맞는 한글로 써 줘. 한글 한 문장이 영어 여러 문장이 되면 블록을 나눠 줘. 다른 말 없이 반드시 아래 형식으로만 답해 줘.\n" +
+const D7_INSTR = "아래 한글 원문과 내가 쓴 영어를 문장 단위로 짝지어 두 가지 버전으로 답해 줘.\n" +
+  "1) FINAL(내 문장 첨삭): 원어민이 실제로 말할 때 쓰는 자연스러운 구어체로, 내 문장을 최대한 살려서 고쳐 줘.\n" +
+  "2) NATIVE(원어민이라면): 내 영어와 한글 문장 구조는 잊고, 같은 내용을 원어민이 처음부터 자기 말로 이야기한다면 어떻게 말할지 써 줘. 한글을 번역하지 말고 친구에게 말하듯 자연스럽게. 너무 어려운 단어나 관용구는 피하고 내가 따라 말할 수 있는 수준(B1~B2)으로, 그 블록 내용만 한두 문장으로 써 줘.\n" +
+  "KO는 최종본과 의미가 정확히 맞는 한글로 써 줘. 한글 한 문장이 영어 여러 문장이 되면 블록을 나눠 줘. 다른 말 없이 반드시 아래 형식으로만 답해 줘.\n" +
   "###\n" +
   "KO: (한글 문장)\n" +
   "MY: (내가 쓴 영어 문장)\n" +
-  "FINAL: (최종 영어 문장)\n" +
+  "FINAL: (내 문장을 고친 최종 영어 문장)\n" +
   "TYPE: 통과 / 단어수정 / 구조수정 중 하나\n" +
   "WHY: (한국어 한 줄 설명, 통과면 비움)\n" +
+  "NATIVE: (같은 내용을 원어민이 직접 말한다면)\n" +
   "###";
 function d7Prompt(q, ko, en) {
   return D7_INSTR + "\n\n" +
@@ -1781,13 +1792,14 @@ function d7Prompt(q, ko, en) {
 /* 읽기(너그럽게): 코드블록·굵게·`코드`·글머리(- * >)·번호(1. 1) ①)·전각 콜론·대소문자·한글 이름표(한글/내 영어/최종/유형/이유) 무시.
    ### 줄로 블록을 나눔. ###가 없거나 빠졌으면 이미 나온 이름표가 다시 나올 때 새 블록. 맨 앞·맨 뒤의 이름표 없는 글(인사말 등)은 버림.
    블록 = FINAL이 있으면 읽음. 이름표가 없거나 FINAL이 없는 블록은 번호(n번째)로 bad에 → 화면에 알림, 나머지는 저장
-   → { sents: [{ ko, my, final, type, why }], bad: [블록 번호], noKo: [블록 번호], total } */
+   → { sents: [{ ko, my, final, type, why, native? }], bad: [블록 번호], noKo: [블록 번호], total } — native는 있을 때만 */
 const D7_KEYS = [
   ["ko", /^(?:ko|kr|kor|korean|한글|한국어|한글\s*문장|번역)$/i],
   ["my", /^(?:my|mine|my\s*english|me|내\s*영어|내가\s*쓴\s*영어|내\s*문장|원문)$/i],
   ["final", /^(?:final|fin|최종|최종본|최종\s*영어|최종\s*문장|고친\s*문장)$/i],
   ["type", /^(?:type|유형|타입|종류)$/i],
-  ["why", /^(?:why|reason|이유|설명)$/i]
+  ["why", /^(?:why|reason|이유|설명)$/i],
+  ["native", /^(?:native|native\s*version|nat|natural|원어민|원어민\s*버전|원어민이라면|네이티브)$/i]
 ];
 function d7Key(name) { const n = name.replace(/\s+/g, " ").trim(); const k = D7_KEYS.find(x => x[1].test(n)); return k ? k[0] : null; }
 function d7Clean(src) {
@@ -1837,7 +1849,10 @@ function parseD7(raw) {
     if (!fin || !/[A-Za-z]/.test(fin)) { bad.push(i + 1); return; }
     const my = unquote(f.my), ko = unquote(f.ko);
     if (!ko) noKo.push(i + 1);
-    sents.push({ ko, my, final: fin, type: d7Type(f.type, my, fin), why: unquote(f.why) });
+    const s = { ko, my, final: fin, type: d7Type(f.type, my, fin), why: unquote(f.why) };
+    const nat = unquote(f.native);
+    if (nat && /[A-Za-z]/.test(nat)) s.native = nat;                           // 원어민 버전 — 없으면 칸을 안 만듦(옛 답과 같은 모양)
+    sents.push(s);
   });
   return { sents, bad, noKo, total: recs.length };
 }
@@ -2346,14 +2361,28 @@ function d7Go(it, v) {
   save(); buzz(); renderFlow(); FL.body.scrollTop = 0;
 }
 const typeTag = t => (t ? '<span class="t7 ' + (TYPE_KEY[t] || "") + '">' + esc(t) + "</span>" : '<span class="t7">유형 없음</span>');
-/* 문장 카드(⑤ · 구조수정 모아보기): 한글 / 내 영어(뺀 단어 줄긋기) / 최종본(바뀐·더한 단어 강조) / 설명 */
+/* 문장 카드(⑤ · 구조수정 모아보기): 한글 / [내 문장 첨삭] 내 영어(뺀 단어 줄긋기) / 최종본(바뀐·더한 단어 강조) / 설명 / [원어민이라면](있을 때만) */
 function d7CardHtml(s, no, sub) {
   const d = s.my ? wordDiff(s.my, s.final) : null;
   return '<div class="s7c ' + (TYPE_KEY[s.type] || "") + '"><div class="s7-h"><span>' + no + '</span><span class="s7-q">' + esc(sub || "") + "</span>" + typeTag(s.type) + "</div>" +
     '<div class="s7-r"><span class="s7-l">한글</span><div class="s7-v ko">' + esc(s.ko || "—") + "</div></div>" +
+    (s.native ? '<div class="s7-sec">✏️ 내 문장 첨삭</div>' : "") +
     (s.my ? '<div class="s7-r"><span class="s7-l">내 영어</span><div class="s7-v" lang="en">' + diffHtml(d.my, "df-del") + "</div></div>" : "") +
     '<div class="s7-r"><span class="s7-l">최종본</span><div class="s7-v fin" lang="en">' + (d ? diffHtml(d.fin, "df-add") : esc(s.final)) + "</div></div>" +
-    (s.why ? '<div class="s7-r"><span class="s7-l">설명</span><div class="s7-v why">' + esc(s.why) + "</div></div>" : "") + "</div>";
+    (s.why ? '<div class="s7-r"><span class="s7-l">설명</span><div class="s7-v why">' + esc(s.why) + "</div></div>" : "") +
+    (s.native ? '<div class="s7-nat"><div class="s7-sec nat">🗣️ 원어민이라면</div><div class="s7-v nat" lang="en">' + esc(s.native) + "</div></div>" : "") + "</div>";
+}
+/* ⑥·⑦ 문장 버전 [첨삭본 | 원어민 버전](settings.ver7, 처음엔 첨삭본) — 원어민 버전이 있는 문장이 하나라도 있을 때만 보임.
+   원어민 버전이 없는 문장은 첨삭본으로. 음성 캐시는 글 기준이라 버전마다 따로 한 번만 만듦 */
+const hasNative = sents => sents.some(s => s.native);
+const useNative = sents => settings.ver7 === "nat" && hasNative(sents);
+const sayOf = (s, nat) => (nat && s.native ? s.native : s.final);
+function ver7Html(sents) {
+  if (!hasNative(sents)) return "";
+  const nat = useNative(sents), miss = sents.filter(s => !s.native).length;
+  return '<div class="seg ver7" role="group" aria-label="문장 버전"><button data-act="ver7-fin" aria-pressed="' + !nat + '">✏️ 첨삭본</button>' +
+    '<button data-act="ver7-nat" aria-pressed="' + nat + '">🗣️ 원어민 버전</button></div>' +
+    (nat && miss ? '<p class="note">원어민 버전이 없는 문장 ' + miss + "개는 첨삭본으로 나와요.</p>" : "");
 }
 /* ④·⑤ 위 알림: 못 읽은 블록 번호 · 한글이 빠진 블록 번호 */
 function d7NoticeHtml(it) {
@@ -2397,7 +2426,7 @@ function renderDiary(w, q, it, n) {
     const val = F.pdraft != null ? F.pdraft : it.paste || "";
     body = '<p class="q-ko" style="margin-top:4px">ChatGPT 답을 전부 복사해서 아래에 붙여넣고 [적용]을 눌러요. 앞뒤 인사말이나 번호가 섞여 있어도 괜찮아요.</p>' +
       d7NoticeHtml(it) +
-      '<textarea class="wr paste7" id="d7Paste" placeholder="###&#10;KO: …&#10;MY: …&#10;FINAL: …&#10;TYPE: …&#10;WHY: …&#10;###" spellcheck="false">' + esc(val) + "</textarea>" +
+      '<textarea class="wr paste7" id="d7Paste" placeholder="###&#10;KO: …&#10;MY: …&#10;FINAL: …&#10;TYPE: …&#10;WHY: …&#10;NATIVE: …&#10;###" spellcheck="false">' + esc(val) + "</textarea>" +
       (sents.length ? '<p class="note">지금 저장된 문장 ' + sents.length + "개 · 다시 적용하면 바뀌어요</p>" : "");
     foot = '<div class="two"><button class="outline-btn sm" data-act="d7-clip">' + IC.paste + '<span>클립보드</span></button>' +
       '<button class="go" data-act="d7-apply" ' + (val.trim() ? "" : "disabled") + ">" + IC.check + "적용</button></div>" +
@@ -2408,21 +2437,24 @@ function renderDiary(w, q, it, n) {
     body = qHead + d7NoticeHtml(it) +
       '<div class="sum7">' + Object.keys(cnt).map(k => '<span class="t7 ' + TYPE_KEY[k] + '">' + k + " " + cnt[k] + "</span>").join("") + "</div>" +
       (sents.length ? sents.map((s, i) => d7CardHtml(s, i + 1, "")).join("") : '<div class="warn">문장이 없어요. ④에서 AI 답변을 붙여넣어 주세요.</div>') +
-      '<p class="note">최종본의 <span class="df-add">노란 단어</span>는 고치거나 더한 말, 내 영어의 <span class="df-del">줄 그은 단어</span>는 빠진 말이에요.</p>';
+      '<p class="note">최종본의 <span class="df-add">노란 단어</span>는 고치거나 더한 말, 내 영어의 <span class="df-del">줄 그은 단어</span>는 빠진 말이에요.' +
+      (hasNative(sents) ? " 원어민이라면은 내 문장과 상관없이 같은 내용을 원어민이 직접 말한 버전이에요." : "") + "</p>";
     foot = '<button class="go" data-act="d7-next" ' + (sents.length ? "" : "disabled") + ">⑥ 듣기로" + IC.arrow + "</button>" +
       '<div class="sub-row"><button class="sub-btn" data-act="d7-repaste">' + IC.paste + "다시 붙여넣기</button></div>";
   } else if (v === 5) {                                                      // ⑥ 듣기
-    body = '<div class="l7-bar"><button class="ls-play" data-l7="all">' + IC.play + "연속 재생</button>" +
+    const nat = useNative(sents);
+    body = ver7Html(sents) + '<div class="l7-bar"><button class="ls-play" data-l7="all">' + IC.play + "연속 재생</button>" +
       '<button class="l7-rep" data-l7="rep" aria-pressed="' + settings.lsRep + '">' + IC_REP.replace("<svg", '<svg width="18" height="18"') + "한 문장 반복</button></div>" +
       '<div class="seg l7-rate" role="group" aria-label="속도">' + LS_RATES.map(r => '<button data-l7rate="' + r + '" aria-pressed="' + (settings.lsRate === r) + '">' + (r === 1 ? "1.0" : r) + "x</button>").join("") + "</div>" +
       '<p class="note">문장을 누르면 그 문장만 들어요.' + (settings.apiKey ? "" : " 지금은 API 키가 없어서 폰 기본 음성으로 읽어요(설정에서 넣을 수 있어요).") + "</p>" +
       '<ul class="pairs" id="l7List">' + sents.map((s, i) => '<li class="pair ls-row l7-row" data-i="' + i + '"><span class="pn">' + (i + 1) + '</span><div class="pb"><div class="pe" lang="en">' +
-        scriptHtml(s.final) + '</div><div class="pko">' + esc(s.ko) + "</div></div></li>").join("") + "</ul>" +
+        scriptHtml(sayOf(s, nat)) + '</div><div class="pko">' + esc(s.ko) + "</div></div></li>").join("") + "</ul>" +
       '<button class="outline-btn" data-act="to-drive" style="margin-top:16px">' + IC.speaker + "듣기 탭에서 이어 듣기 (드라이브 모드)</button>";
     foot = '<button class="go" data-act="d7-next">⑦ 말하기 연습으로' + IC.arrow + "</button>";
   } else if (v === 6) {                                                      // ⑦ 말하기 연습
-    const list = sents.map(s => ({ ko: s.ko, final: s.final }));
+    const nat = useNative(sents), list = sents.map(s => ({ ko: s.ko, final: sayOf(s, nat) }));
     [body, foot] = spkView(list, "q:" + F.ch + ":" + F.qid + ":" + hashStr(list.map(s => s.final).join("\n")), "질문 완료", true);
+    body = ver7Html(sents) + body;
   } else {                                                                   // 완료
     const nx = nextEntry(w);
     body = '<div class="donebox"><div class="em">🎉</div><h2>질문 ' + n + " 완료</h2><p>" + esc(q.ko) + "</p></div>" +
@@ -2496,6 +2528,14 @@ async function onDiaryAct(w, q, it, act, b) {
     d7Apply(it, text); return;
   }
   if (act === "to-drive") { F.toListen = true; closeFlow(); return; }
+  if (act === "ver7-fin" || act === "ver7-nat") {                           // ⑥·⑦ 첨삭본 / 원어민 버전
+    const want = act === "ver7-nat" ? "nat" : "fin";
+    if (settings.ver7 === want) return;
+    settings.ver7 = want; saveSettings(); SPK.key = "";
+    buzz(); renderFlow();
+    toast(want === "nat" ? "원어민 버전으로 듣고 말해요" : "첨삭본으로 듣고 말해요");
+    return;
+  }
   if (act === "swap") {
     const slot = w.qs.indexOf(F.qid);
     if (swapQuestion(w, F.qid)) { F.qid = w.qs[slot]; buzz(); toast("다른 질문으로 바꿨어요"); enterQuestion(w, F.qid); renderFlow(); }
