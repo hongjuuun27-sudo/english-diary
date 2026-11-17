@@ -3,7 +3,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-mlcx8WVLIJadIQ8XFgeohtDC2lemhiilt8wW+KzKQwI='; style-src 'unsafe-inline'; connect-src 'self' https://api.elevenlabs.io; media-src blob:; img-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-G3qWHWMyf1DheZ7eV2jopmNI3GPxIR/AApc+BQfwKKQ='; style-src 'unsafe-inline'; connect-src 'self' https://api.elevenlabs.io; media-src blob:; img-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#121417" media="(prefers-color-scheme: dark)">
@@ -461,6 +461,10 @@
   .s7-sec.nat{ margin-top:0; padding-top:0; border-top:0; color:var(--accent); }
   .s7-v.nat{ margin-top:4px; font-size:calc(16.5px * var(--tz)); font-weight:600; color:var(--text); }
   .ver7{ margin-top:14px; }
+  .kw7-seg{ margin-top:10px; }
+  .kw7-seg button{ min-height:48px; }
+  .kw-row{ cursor:pointer; }
+  .kw-row .pe{ font-size:calc(17px * var(--tz)); }
   .ver7 button{ min-height:48px; }
   .df-add{ border-radius:4px; background:var(--yel-soft); box-shadow:0 0 0 2px var(--yel-soft); color:var(--text); }
   .df-del{ color:var(--red); text-decoration:line-through; text-decoration-thickness:1.5px; opacity:.85; }
@@ -1769,11 +1773,12 @@ function applyPaste(it, text) {
 /* =====================================================================
    일기 첨삭 프롬프트 · 결과 읽기 (2026-11-17 — 일기 7단계. 오픽은 위 opicPrompt·parseFix 그대로)
    d7Prompt: 지시문(사용자가 정한 글 — 한 글자도 바꾸지 않음) + 질문(영어·한글) + 한글 원문 + 내 영어
-   답 형식: ### 로 나눈 블록마다 KO / MY / FINAL / TYPE(통과·단어수정·구조수정) / WHY / NATIVE(원어민이라면 — 2026-11-17 추가, 없는 옛 답도 읽음)
+   답 형식: ### 로 나눈 블록마다 KO / MY / FINAL / TYPE(통과·단어수정·구조수정) / WHY / NATIVE(원어민이라면) / KEY(한글 키워드 — ⑦ 키워드 보고 말하기) — NATIVE·KEY는 2026-11-17 추가, 없는 옛 답도 읽음
    ===================================================================== */
 const D7_INSTR = "아래 한글 원문과 내가 쓴 영어를 문장 단위로 짝지어 두 가지 버전으로 답해 줘.\n" +
   "1) FINAL(내 문장 첨삭): 원어민이 실제로 말할 때 쓰는 자연스러운 구어체로, 내 문장을 최대한 살려서 고쳐 줘.\n" +
   "2) NATIVE(원어민이라면): 내 영어와 한글 문장 구조는 잊고, 같은 내용을 원어민이 처음부터 자기 말로 이야기한다면 어떻게 말할지 써 줘. 한글을 번역하지 말고 친구에게 말하듯 자연스럽게. 너무 어려운 단어나 관용구는 피하고 내가 따라 말할 수 있는 수준(B1~B2)으로, 그 블록 내용만 한두 문장으로 써 줘.\n" +
+  "3) KEY(키워드): 나중에 일기 전체를 영어로 말할 때 이 문장을 떠올릴 한글 키워드 하나(2~8글자 명사구, 예: 야간 근무 끝). 블록 순서가 말하는 순서가 되게 써 줘.\n" +
   "KO는 최종본과 의미가 정확히 맞는 한글로 써 줘. 한글 한 문장이 영어 여러 문장이 되면 블록을 나눠 줘. 다른 말 없이 반드시 아래 형식으로만 답해 줘.\n" +
   "###\n" +
   "KO: (한글 문장)\n" +
@@ -1782,6 +1787,7 @@ const D7_INSTR = "아래 한글 원문과 내가 쓴 영어를 문장 단위로 
   "TYPE: 통과 / 단어수정 / 구조수정 중 하나\n" +
   "WHY: (한국어 한 줄 설명, 통과면 비움)\n" +
   "NATIVE: (같은 내용을 원어민이 직접 말한다면)\n" +
+  "KEY: (한글 키워드 하나)\n" +
   "###";
 function d7Prompt(q, ko, en) {
   return D7_INSTR + "\n\n" +
@@ -1792,14 +1798,15 @@ function d7Prompt(q, ko, en) {
 /* 읽기(너그럽게): 코드블록·굵게·`코드`·글머리(- * >)·번호(1. 1) ①)·전각 콜론·대소문자·한글 이름표(한글/내 영어/최종/유형/이유) 무시.
    ### 줄로 블록을 나눔. ###가 없거나 빠졌으면 이미 나온 이름표가 다시 나올 때 새 블록. 맨 앞·맨 뒤의 이름표 없는 글(인사말 등)은 버림.
    블록 = FINAL이 있으면 읽음. 이름표가 없거나 FINAL이 없는 블록은 번호(n번째)로 bad에 → 화면에 알림, 나머지는 저장
-   → { sents: [{ ko, my, final, type, why, native? }], bad: [블록 번호], noKo: [블록 번호], total } — native는 있을 때만 */
+   → { sents: [{ ko, my, final, type, why, native?, key? }], bad: [블록 번호], noKo: [블록 번호], total } — native는 있을 때만 */
 const D7_KEYS = [
   ["ko", /^(?:ko|kr|kor|korean|한글|한국어|한글\s*문장|번역)$/i],
   ["my", /^(?:my|mine|my\s*english|me|내\s*영어|내가\s*쓴\s*영어|내\s*문장|원문)$/i],
   ["final", /^(?:final|fin|최종|최종본|최종\s*영어|최종\s*문장|고친\s*문장)$/i],
   ["type", /^(?:type|유형|타입|종류)$/i],
   ["why", /^(?:why|reason|이유|설명)$/i],
-  ["native", /^(?:native|native\s*version|nat|natural|원어민|원어민\s*버전|원어민이라면|네이티브)$/i]
+  ["native", /^(?:native|native\s*version|nat|natural|원어민|원어민\s*버전|원어민이라면|네이티브)$/i],
+  ["key", /^(?:key|keys|keyword|keywords|kw|cue|키워드|핵심어|핵심\s*키워드|한글\s*키워드)$/i]
 ];
 function d7Key(name) { const n = name.replace(/\s+/g, " ").trim(); const k = D7_KEYS.find(x => x[1].test(n)); return k ? k[0] : null; }
 function d7Clean(src) {
@@ -1852,6 +1859,8 @@ function parseD7(raw) {
     const s = { ko, my, final: fin, type: d7Type(f.type, my, fin), why: unquote(f.why) };
     const nat = unquote(f.native);
     if (nat && /[A-Za-z]/.test(nat)) s.native = nat;                           // 원어민 버전 — 없으면 칸을 안 만듦(옛 답과 같은 모양)
+    const key = unquote(f.key).replace(/^[\[(（]\s*|\s*[\])）]$/g, "").trim();
+    if (key) s.key = key.length > 30 ? key.slice(0, 30) + "…" : key;           // ⑦ 키워드 보고 말하기 — 없으면 칸을 안 만듦
     sents.push(s);
   });
   return { sents, bad, noKo, total: recs.length };
@@ -2426,7 +2435,7 @@ function renderDiary(w, q, it, n) {
     const val = F.pdraft != null ? F.pdraft : it.paste || "";
     body = '<p class="q-ko" style="margin-top:4px">ChatGPT 답을 전부 복사해서 아래에 붙여넣고 [적용]을 눌러요. 앞뒤 인사말이나 번호가 섞여 있어도 괜찮아요.</p>' +
       d7NoticeHtml(it) +
-      '<textarea class="wr paste7" id="d7Paste" placeholder="###&#10;KO: …&#10;MY: …&#10;FINAL: …&#10;TYPE: …&#10;WHY: …&#10;NATIVE: …&#10;###" spellcheck="false">' + esc(val) + "</textarea>" +
+      '<textarea class="wr paste7" id="d7Paste" placeholder="###&#10;KO: …&#10;MY: …&#10;FINAL: …&#10;TYPE: …&#10;WHY: …&#10;NATIVE: …&#10;KEY: …&#10;###" spellcheck="false">' + esc(val) + "</textarea>" +
       (sents.length ? '<p class="note">지금 저장된 문장 ' + sents.length + "개 · 다시 적용하면 바뀌어요</p>" : "");
     foot = '<div class="two"><button class="outline-btn sm" data-act="d7-clip">' + IC.paste + '<span>클립보드</span></button>' +
       '<button class="go" data-act="d7-apply" ' + (val.trim() ? "" : "disabled") + ">" + IC.check + "적용</button></div>" +
@@ -2453,8 +2462,10 @@ function renderDiary(w, q, it, n) {
     foot = '<button class="go" data-act="d7-next">⑦ 말하기 연습으로' + IC.arrow + "</button>";
   } else if (v === 6) {                                                      // ⑦ 말하기 연습
     const nat = useNative(sents), list = sents.map(s => ({ ko: s.ko, final: sayOf(s, nat) }));
-    [body, foot] = spkView(list, "q:" + F.ch + ":" + F.qid + ":" + hashStr(list.map(s => s.final).join("\n")), "질문 완료", true);
-    body = ver7Html(sents) + body;
+    kwSync();
+    if (KW.mode === "kw") [body, foot] = kwView(it, sents, nat);
+    else [body, foot] = spkView(list, "q:" + F.ch + ":" + F.qid + ":" + hashStr(list.map(s => s.final).join("\n")), "질문 완료", true, "kw7-kw");
+    body = ver7Html(sents) + kwModeHtml() + body;
   } else {                                                                   // 완료
     const nx = nextEntry(w);
     body = '<div class="donebox"><div class="em">🎉</div><h2>질문 ' + n + " 완료</h2><p>" + esc(q.ko) + "</p></div>" +
@@ -2467,7 +2478,7 @@ function renderDiary(w, q, it, n) {
   FL.foot.innerHTML = foot;
   if (v === 0) srPaint();
   if (v === 5) setupL7();
-  if (v === 6) setupRecite();
+  if (v === 6) { if (KW.mode === "kw") setupKw(); else setupRecite(); }
 }
 function d7Input(it, t) {
   if (t.id === "d7Ko") {
@@ -2541,16 +2552,105 @@ async function onDiaryAct(w, q, it, act, b) {
     if (swapQuestion(w, F.qid)) { F.qid = w.qs[slot]; buzz(); toast("다른 질문으로 바꿨어요"); enterQuestion(w, F.qid); renderFlow(); }
     return;
   }
-  if (act.startsWith("sp7-")) {
-    spkAct(act, () => {                                                       // ⑦ 끝 → 질문 완료
-      it.step = "done";
-      if (!it.doneOn) it.doneOn = dateKey();
-      it.p7 = 6;
-      SPK.key = "";
-      F.view = D7_DONE;
-      save(); buzz(); renderFlow(); FL.body.scrollTop = 0;
-    });
+  const finish = () => {                                                      // ⑦ 끝 → 질문 완료
+    it.step = "done";
+    if (!it.doneOn) it.doneOn = dateKey();
+    it.p7 = 6;
+    SPK.key = "";
+    KW.q = "";
+    F.view = D7_DONE;
+    save(); buzz(); renderFlow(); FL.body.scrollTop = 0;
+  };
+  if (act.startsWith("sp7-")) { spkAct(act, finish); return; }
+  if (act.startsWith("kw7-")) { kwAct(it, act, b, finish); return; }
+  if (act === "sp-play") { recPlay(); return; }
+  if (act === "sp-save") { recSave(); return; }
+}
+
+/* ---------- ⑦ 키워드 보고 말하기 (2026-11-17 — 7단계로 바꿀 때 빠졌던 '키워드 보고 말하기'를 ⑦ 안의 방식으로 되살림) ----------
+   ⑦ 위 [한 문장씩 | 키워드로 전체]. 키워드로 전체 = 한글 키워드(.kw-seq, 문장 순서)만 보고 일기 전체를 영어로 → [말하기 시작](타이머 + 녹음, 예전 말하기 단계와 같은 코드)
+   → [다 말했어요] → [영어 보기] = 전체 영어(첨삭본/원어민 버전 토글을 따름) + [전체 듣기]·문장 누르면 그 문장만 → [질문 완료].
+   키워드: 문장마다 KEY(새 프롬프트) → 없으면 옛 기록의 [흐름](→로 나눔) → 그것도 없으면 한글 문장 앞 두 어절 + "…".
+   KW = 지금 질문의 방식·영어 보기(저장 안 함 — 질문을 바꾸면 한 문장씩부터). 말한 시간은 it.kwSpoke { sec, on } */
+const KW = { q: "", mode: "sent", shown: false };
+function kwSync() { const q = F.ch + ":" + F.qid; if (KW.q !== q) Object.assign(KW, { q, mode: "sent", shown: false }); }
+const kwFromKo = ko => { const w = String(ko || "").trim().replace(/[.,!?。…~]+$/, "").split(/\s+/).filter(Boolean); return w.length ? w.slice(0, 2).join(" ") + (w.length > 2 ? " …" : "") : ""; };
+/* → { list: [키워드], src: "key" | "flow" | "ko" | "mix" } */
+function kwCues(it) {
+  const ss = sentsOf(it), withKey = ss.filter(s => s.key).length;
+  if (withKey) return { list: ss.map((s, i) => s.key || kwFromKo(s.ko) || (i + 1) + "번 문장"), src: withKey === ss.length ? "key" : "mix" };
+  const flow = String(it && it.flow || "").split(/\s*(?:→|->|⇒|>)\s*/).map(x => x.trim()).filter(Boolean);
+  if (flow.length > 1) return { list: flow, src: "flow" };
+  return { list: ss.map((s, i) => kwFromKo(s.ko) || (i + 1) + "번 문장"), src: "ko" };
+}
+/* 목표 시간 = 말할 영어 단어 수 × 0.6초(예전 말하기 단계와 같음), 10초 단위, 30초~2분 30초 */
+const kwGoal = texts => Math.max(30, Math.min(150, Math.round(texts.reduce((n, t) => n + wordCount(t), 0) * 0.6 / 10) * 10));
+function kwModeHtml() {
+  return '<div class="seg kw7-seg" role="group" aria-label="말하기 방식"><button data-act="kw7-sent" aria-pressed="' + (KW.mode !== "kw") + '">한 문장씩</button>' +
+    '<button data-act="kw7-kw" aria-pressed="' + (KW.mode === "kw") + '">🔑 키워드로 전체</button></div>';
+}
+function kwView(it, sents, nat) {
+  const ctx = "kw:" + F.qid, state = timerState(ctx), cues = kwCues(it), texts = sents.map(s => sayOf(s, nat)), goal = kwGoal(texts);
+  const srcNote = cues.src === "flow" ? "예전 첨삭의 [흐름]으로 보여 줘요." : cues.src === "ko" ? "키워드가 없는 답이라 한글 문장 앞부분으로 보여 줘요." : cues.src === "mix" ? "키워드가 없는 문장은 한글 앞부분으로 보여 줘요." : "";
+  let body = '<div class="box-t" style="margin-top:18px">한글 키워드를 순서대로 보며 일기 전체를 영어로 말해 보세요</div>' +
+    '<ol class="kw-seq" id="kwSeq">' + cues.list.map(k => "<li>" + esc(k) + "</li>").join("") + "</ol>" +
+    (srcNote ? '<p class="note">' + srcNote + "</p>" : "") +
+    timerHtml(ctx, goal, it.kwSpoke ? "지난번 " + fmtSec(it.kwSpoke.sec) + " 말했어요 · 다시 해도 돼요" : "[말하기 시작]을 누르고 말해요. 시간이 막대로 보여요",
+      '<div id="recLive">' + recLiveHtml() + "</div>") +
+    '<div id="recBox">' + recBoxHtml() + "</div>";
+  if (KW.shown) body += '<div class="box-t" style="margin-top:18px">' + (nat ? "🗣️ 원어민 버전" : "✏️ 첨삭본") + " 전체</div>" +
+    '<div class="l7-bar"><button class="ls-play" data-act="kw7-play">' + IC.play + "전체 듣기</button></div>" +
+    '<ul class="pairs" id="kwList">' + texts.map((t, i) => '<li class="pair ls-row kw-row" data-act="kw7-one" data-i="' + i + '"><span class="pn">' + (i + 1) + '</span><div class="pb"><div class="pe" lang="en">' +
+      scriptHtml(t) + "</div></div></li>").join("") + "</ul>" +
+    '<p class="note">문장을 누르면 그 문장만 들어요. 외운 문장 그대로가 아니어도 괜찮아요.</p>';
+  else body += '<p class="note">외운 문장 그대로가 아니어도 괜찮아요. 막히면 다른 말로 돌려 말해요.</p>';
+  let foot;
+  if (state === "running") foot = '<button class="go" data-act="kw7-stop">' + IC.check + "다 말했어요</button>";
+  else if (KW.shown) foot = '<button class="go" data-act="kw7-finish">' + IC.check + "질문 완료</button>" +
+    '<div class="sub-row"><button class="sub-btn" data-act="kw7-start">다시 말해 보기</button></div>';
+  else if (state === "stopped") foot = '<button class="go" data-act="kw7-show">' + IC.speaker + "영어 보기</button>" +
+    '<div class="sub-row"><button class="sub-btn" data-act="kw7-start">다시 말해 보기</button></div>';
+  else foot = '<button class="go" data-act="kw7-start">' + IC.play + "말하기 시작</button>" +
+    '<div class="sub-row"><button class="sub-btn" data-act="kw7-show">시간 재지 않고 영어 보기</button></div>';
+  return [body, foot];
+}
+function setupKw() {
+  setupTimer();
+  if (!KW.shown || !FL.body.querySelector(".kw-row")) return;
+  F.rd = lsReader(".kw-row", { rate: () => settings.lsRate, gap: 450, onChange: paintKw });
+  paintKw();
+}
+function paintKw() {
+  const b = FL.body.querySelector('[data-act="kw7-play"]');
+  if (!b || !F.rd) return;
+  const s = F.rd.state(), all = s.active && !s.single;
+  b.innerHTML = all && !s.paused ? IC.pause + "일시정지" : all ? IC.play + "이어 듣기" : IC.play + "전체 듣기";
+}
+function kwAct(it, act, b, finish) {
+  const ctx = "kw:" + F.qid;
+  if (act === "kw7-sent" || act === "kw7-kw") {
+    const m = act === "kw7-kw" ? "kw" : "sent";
+    if (KW.mode === m) return;
+    KW.mode = m; KW.shown = false; SPK.key = "";
+    buzz(); renderFlow(); FL.body.scrollTop = 0; return;
   }
+  if (act === "kw7-start") {
+    const sents = sentsOf(it), nat = useNative(sents);
+    KW.shown = false;
+    recStart(ctx, fChapter().qs.indexOf(F.qid) + 1);
+    timerStart(ctx, kwGoal(sents.map(s => sayOf(s, nat))));
+    return;
+  }
+  if (act === "kw7-stop") { const sec = timerStop(); recStop(); if (sec != null) { it.kwSpoke = { sec, on: dateKey() }; save(); } renderFlow(); return; }
+  if (act === "kw7-show") { KW.shown = true; buzz(); renderFlow(); const l = $("kwList"); if (l) autoScroll(FL.body, FL.body.scrollTop + l.getBoundingClientRect().top - FL.body.getBoundingClientRect().top - 120); return; }
+  if (act === "kw7-play") { if (!F.rd) return; const s = F.rd.state(); if (s.active && !s.single) F.rd.toggle(); else F.rd.play(0, 0, false); buzz(); return; }
+  if (act === "kw7-one") {
+    if (!F.rd) return;
+    const i = +b.dataset.i, s = F.rd.state();
+    if (s.active && s.single && s.index === i) F.rd.stop(); else F.rd.play(i, 0, true);
+    return;
+  }
+  if (act === "kw7-finish") finish();
 }
 
 /* ---------- ① 음성 입력 (Web Speech API, ko-KR) ----------
@@ -2681,7 +2781,7 @@ function spkSync(key, n) {
   Object.assign(SPK, { key, n, order: Array.from({ length: n }, (_, i) => i), i: 0, shown: false, shuf: false });
 }
 /* list = [{ ko, final, sub?(질문 이름) }] · finish = 마지막 버튼 글 · subFinish = 마지막 전에도 작은 [finish] 버튼 */
-function spkView(list, key, finish, subFinish) {
+function spkView(list, key, finish, subFinish, lastAct) {          // lastAct = 마지막 카드의 큰 버튼을 [키워드 보고 말하기로]로(일기 ⑦)
   spkSync(key, list.length);
   const n = list.length;
   if (!n) return ['<div class="warn">말해 볼 문장이 없어요.</div>', ""];
@@ -2698,9 +2798,9 @@ function spkView(list, key, finish, subFinish) {
   body += "</div>";
   const prev = '<button class="outline-btn sm" data-act="sp7-prev" ' + (SPK.i ? "" : "disabled") + ">이전</button>";
   let foot = SPK.shown
-    ? '<div class="two">' + prev + (last ? '<button class="go" data-act="sp7-finish">' + IC.check + esc(finish) + "</button>" : '<button class="go" data-act="sp7-next">다음 문장' + IC.arrow + "</button>") + "</div>"
+    ? '<div class="two">' + prev + (last ? (lastAct ? '<button class="go" data-act="' + lastAct + '">키워드로 전체 말하기' + IC.arrow + "</button>" : '<button class="go" data-act="sp7-finish">' + IC.check + esc(finish) + "</button>") : '<button class="go" data-act="sp7-next">다음 문장' + IC.arrow + "</button>") + "</div>"
     : '<div class="two">' + prev + '<button class="go" data-act="sp7-show">' + IC.speaker + "영어 보기</button></div>";
-  if (subFinish && !(SPK.shown && last)) foot += '<div class="sub-row"><button class="sub-btn" data-act="sp7-finish">' + esc(finish) + "</button></div>";
+  if (subFinish && (lastAct || !(SPK.shown && last))) foot += '<div class="sub-row"><button class="sub-btn" data-act="sp7-finish">' + esc(finish) + "</button></div>";
   return [body, foot];
 }
 function spkAct(act, onFinish) {
@@ -3341,7 +3441,7 @@ function goNext(w) {
 const nextLabel = nx => nx.kind === "q" ? "다음: 질문 " + nx.n : nx.kind === "gpt" ? "다음: GPT 대화 " + nx.n : "다음: 챕터 복습";
 /* 지금 화면의 타이머 이름(다르면 타이머를 지움) · 암송 카드 이름(다르면 영어를 다시 숨김) */
 function flowCtx() {
-  if (F.kind === "q") return F.warm ? "warm:" + F.qid : F.op && F.view === 4 ? "speak:" + F.qid : "";
+  if (F.kind === "q") return F.warm ? "warm:" + F.qid : F.op && F.view === 4 ? "speak:" + F.qid : !F.op && F.view === 6 && KW.mode === "kw" && KW.q === F.ch + ":" + F.qid ? "kw:" + F.qid : "";
   if (F.kind === "review") { const w = fChapter(), rv = w && w.review; return rv && rv.phase === "cond" ? "rv:" + rv.cq[rv.ci] : ""; }
   return "";
 }
