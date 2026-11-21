@@ -3,7 +3,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-I4An/pFCcdBojIAEz2YOmlzRS9J5ZzGPiYxxyrQIQJk='; style-src 'unsafe-inline'; connect-src 'self' https://api.elevenlabs.io; media-src blob:; img-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-WBrNWb+LrvPFCS9RikZkKStvBbSmri71ERfjCpSmJv4='; style-src 'unsafe-inline'; connect-src 'self' https://api.elevenlabs.io; media-src blob:; img-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#121417" media="(prefers-color-scheme: dark)">
@@ -344,6 +344,31 @@
   .lt-wk .tp-emo{ font-size:22px; }
   .lt-wk b{ display:block; font-size:15.5px; }
   .lt-wk span span{ display:block; font-size:13px; color:var(--faint); font-variant-numeric:tabular-nums; }
+  /* 들을 질문 고르기(v21): 챕터 카드보다 한 단계 약한 행, 체크는 IC.check. 첨삭 전 질문은 점선 칸 · 흐린 글(고를 수 없음) */
+  .lt-qh{ display:flex; align-items:flex-end; justify-content:space-between; gap:8px; }
+  .lt-qh .sec-t{ margin-bottom:10px; }
+  .lt-all{ flex:none; min-height:44px; margin-bottom:-4px; padding:0 4px 0 12px; font-size:14.5px; font-weight:650; color:var(--accent); }
+  .lt-qs{ display:flex; flex-direction:column; gap:6px; }
+  .lt-q{ display:flex; align-items:center; gap:12px; width:100%; min-height:56px; padding:9px 14px; border-radius:14px; border:1.5px solid var(--line); background:var(--card); text-align:left; }
+  .lt-q[aria-checked="true"]{ border-color:var(--accent-line); background:var(--accent-soft); }
+  .lt-qc{ flex:none; width:22px; height:22px; border-radius:7px; border:1.5px solid var(--faint); display:flex; align-items:center; justify-content:center; }
+  .lt-qc svg{ width:15px; height:15px; }
+  .lt-q[aria-checked="true"] .lt-qc{ background:var(--accent); border-color:var(--accent); color:var(--on-accent); }
+  .lt-qt{ flex:1; min-width:0; }
+  .lt-qt small{ display:block; font-size:12.5px; font-weight:650; color:var(--faint); }
+  .lt-qt span{ display:block; font-size:15px; line-height:1.45; word-break:keep-all; overflow-wrap:anywhere; }
+  .lt-qn{ flex:none; font-size:13px; color:var(--faint); font-variant-numeric:tabular-nums; }
+  .lt-q:disabled{ opacity:1; background:transparent; border-style:dashed; }
+  .lt-rest{ margin:8px 2px 0; font-size:13.5px; color:var(--muted); }
+  .lt-q:disabled .lt-qc{ border-style:dashed; opacity:.6; }
+  .lt-q:disabled .lt-qt span{ color:var(--faint); }
+  .lt-grp + .lt-grp{ margin-top:18px; padding-top:14px; border-top:1px solid var(--line); }
+  .lt-gh{ display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .lt-gh .tp-emo{ font-size:22px; }
+  .lt-gh > span:nth-child(2){ flex:1; min-width:0; }
+  .lt-gh b{ display:block; font-size:15.5px; }
+  .lt-gh .lt-all{ margin-bottom:0; }
+  .lt-gh small{ display:block; font-size:13px; color:var(--faint); font-variant-numeric:tabular-nums; }
   .lt-sum{ margin-top:22px; padding:14px 16px; border-radius:14px; background:var(--bg-2); font-size:15.5px; line-height:1.6; }
   .lt-sum b{ font-variant-numeric:tabular-nums; }
   .lt-pre{ margin-top:14px; }
@@ -3665,11 +3690,11 @@ $("logPage").addEventListener("click", e => {
      한 장 영어 드라이브 모드의 dvGap과 같음: 재생 시간(속도 반영) 1.2~12초 + 0.25초, 못 재면 단어 × 0.38초 ÷ 속도. 질문은 쉬지 않음).
      반복 횟수(opts.rep 1·3·5 — 따라 말하기일 때만): 재생 → 쉼 → 다시 재생 … 횟수만큼 한 뒤 다음 문장(한 장 영어 rvEchoEnd 방식). 질문은 한 번만.
    뺀 것(일기 전용으로 줄임): 효과음, 랜덤 순서. 화면 꺼짐 방지는 아직 안 넣음(사용자가 폰으로 보고 정함)
-   저장 ediary.drive.v1 { opts: { scope: cur|pick|all, ch: 지난 챕터 id, mode: flow|one, rep: 1|3|5 }, pos: { scope, key, label } | null } — key = "챕터 id|질문 id|문장 번호(-1 = 질문)"
+   저장 ediary.drive.v1 { opts: { scope: cur|pick|all, ch: 지난 챕터 id, mode: flow|one, rep: 1|3|5, qs?: { 챕터 id: "all" | [질문 id] }(v21 들을 질문) }, pos: { scope, key, label } | null } — key = "챕터 id|질문 id|문장 번호(-1 = 질문)"
      이번 챕터(cur) = 맨 끝 챕터(끝났어도 다음 챕터를 시작하기 전까지), 지난 챕터(pick) = 그 앞 챕터 중 하나.
      옛 저장(2026-10-12 전: scope week, opts.wk·key에 주 키)은 처음 읽을 때 챕터 id로 바꿈(옮긴 챕터의 wk로 찾음)
    오픽 듣기(2026-10-30): 오픽 화면의 [문제 | 듣기] 중 듣기 — 시작 화면·재생 화면(#drive)·방식·반복은 일기와 똑같고 범위만
-     [이번 회차 | 회차 선택 | 전체 회차(회차 순서)]. 저장은 따로 ediary.opic.drive.v1 { opts: { scope, set: 고른 회차 id, mode, rep }, pos }
+     [이번 회차 | 회차 선택 | 전체 회차(회차 순서)]. 저장은 따로 ediary.opic.drive.v1 { opts: { scope, set: 고른 회차 id, mode, rep, qs?(회차 id 별) }, pos }
      — key = "회차 id|문제 id|문장 번호". 일기(DD)·오픽(OD)을 '듣기 출처' S로 묶고, 재생 화면은 DV.src(시작할 때 고른 S)를 씀
    ===================================================================== */
 const DRIVE_KEY = "ediary.drive.v1", OPIC_DRIVE_KEY = "ediary.opic.drive.v1", DV_REPS = [1, 3, 5];
@@ -3678,6 +3703,14 @@ function dvFixOpts(opts) {
   if (!["cur", "pick", "all"].includes(opts.scope)) opts.scope = "cur";
   if (!["flow", "one"].includes(opts.mode)) opts.mode = "flow";
   if (!DV_REPS.includes(opts.rep)) opts.rep = 1;
+  if (opts.qs !== undefined) {                                               // 들을 질문(v21): { 챕터·회차 id: "all" | [질문 id] } — 이상한 값은 버림
+    if (!opts.qs || typeof opts.qs !== "object" || Array.isArray(opts.qs)) delete opts.qs;
+    else for (const k of Object.keys(opts.qs)) {
+      const v = opts.qs[k];
+      if (Array.isArray(v)) opts.qs[k] = v.filter(x => typeof x === "string");
+      else if (v !== "all") delete opts.qs[k];
+    }
+  }
 }
 /* 일기 듣기 출처 */
 const DD = (() => {
@@ -3696,7 +3729,7 @@ const DD = (() => {
   dvFixOpts(opts);
   if (s && JSON.stringify(s) !== JSON.stringify({ opts, pos })) try { localStorage.setItem(DRIVE_KEY, JSON.stringify({ opts, pos })); } catch (e) {}
   return { id: "diary", key: DRIVE_KEY, opts, pos, album: "영어일기 · 듣기",
-    sets: o => driveChapters(o).map(chapterById).filter(Boolean).map(w => ({ ch: w.id, w, title: chapterTitle(w) })),
+    sets: o => driveChapters(o).map(chapterById).filter(Boolean).map(w => ({ ch: w.id, w, title: chapterTitle(w), emoji: topicOf(w).emoji })),
     refresh: () => { if (mode === "diary" && tab === "listen") renderListen(); } };
 })();
 /* 오픽 듣기 출처(2026-10-30) — 회차 기록(opic.sets)이 있는 회차만. 이름은 회차 이름(오픽 모의고사 1회) */
@@ -3707,7 +3740,7 @@ const OD = (() => {
   dvFixOpts(opts);
   return { id: "opic", key: OPIC_DRIVE_KEY, opts, pos: s && s.pos && typeof s.pos.key === "string" ? s.pos : null, album: "오픽 모의고사 · 듣기",
     sets: o => (o.scope === "cur" ? [opicTopic()] : o.scope === "pick" ? [OPIC_SETS.find(t => t.id === o.set)] : OPIC_SETS)
-      .filter(t => t && opic.sets[t.id]).map(t => ({ ch: t.id, w: opic.sets[t.id], title: t.ko })),
+      .filter(t => t && opic.sets[t.id]).map(t => ({ ch: t.id, w: opic.sets[t.id], title: t.ko, emoji: t.emoji })),
     refresh: () => { if (mode === "opic" && OP.view === "listen") renderOpic(); } };
 })();
 /* 재생 화면 상태 — opts·pos는 지금 듣는 출처(src)의 것 */
@@ -3723,6 +3756,15 @@ function driveChapters(o) {
   return store.chapters.slice().reverse().map(c => c.id);
 }
 const scopeKey = o => o.scope + (o.scope === "pick" ? ":" + (o.ch || o.set || "") : "");   // 일기는 ch, 오픽은 set
+/* 들을 질문(v21) — opts.qs[ch] = "all"(없음도 같음: 지금 최종본 있는 질문 전부, 나중에 첨삭한 질문도 들어감) | [질문 id](그 id만, 최종본 있는 것과 겹치는 것만)
+   ch = 일기 챕터 id / 오픽 회차 id */
+const driveFinal = w => w.qs.filter(id => hasFinal(w.items[id]));           // 고를 수 있는 질문(챕터 안 순서)
+const driveSel = (o, ch) => o.qs ? o.qs[ch] : undefined;
+function driveChosen(w, ch, o) {
+  const sel = driveSel(o, ch), fin = driveFinal(w);
+  return Array.isArray(sel) ? fin.filter(id => sel.includes(id)) : fin;
+}
+function driveChoose(o, ch, next) { (o.qs = o.qs || {})[ch] = next === "all" ? "all" : next.slice(); }
 /* 재생 목록: 질문마다 { kind: q, 질문 영어 } + 따라 말하기면 { kind: s, 문장 }, 끊지 않고 듣기면 { kind: p, 문단(음성 하나) }. 블록 = 질문 하나
    S = 듣기 출처(DD 일기 / OD 오픽) — 고른 범위의 { ch: 챕터·회차 id, w: 기록, title } 차례로 */
 function buildDrive(S) {
@@ -3732,9 +3774,10 @@ function buildDrive(S) {
 function buildDriveParas(S) {
   const items = [], blocks = [];
   S.sets(S.opts).forEach(({ ch, w, title }) => {
+    const pick = driveChosen(w, ch, S.opts);                             // 고른 질문만(v21)
     w.qs.forEach((qid, qi) => {
       const it = w.items[qid], q = Q_BY_ID[qid];                         // 질문 글을 못 찾아도 최종본은 들음(질문 줄만 뺌)
-      if (!it || !hasFinal(it)) return;
+      if (!it || !hasFinal(it) || !pick.includes(qid)) return;
       const pa = paraList(it);
       if (!pa[0] || !pa[0].idx.length) return;
       blocks.push({ start: items.length, ch, w, qid, n: qi + 1 });
@@ -3748,9 +3791,10 @@ function buildDriveParas(S) {
 function buildDriveSents(S) {
   const items = [], blocks = [];
   S.sets(S.opts).forEach(({ ch, w, title }) => {
+    const pick = driveChosen(w, ch, S.opts);                             // 고른 질문만(v21)
     w.qs.forEach((qid, qi) => {
       const it = w.items[qid], q = Q_BY_ID[qid];                         // 질문 글을 못 찾아도 최종본은 들음(질문 줄만 뺌)
-      if (!it || !hasFinal(it)) return;
+      if (!it || !hasFinal(it) || !pick.includes(qid)) return;
       const ps = itPairs(it).filter(p => p.en);
       if (!ps.length) return;
       blocks.push({ start: items.length, ch, w, qid, n: qi + 1 });
@@ -3793,7 +3837,8 @@ function dvResumeIdx(pl) {
 
 /* ---- 시작 화면 ---- */
 const LT = { pre: null };                       // 미리 받아두기 상태 { S, scope, state: count|ready|run|done, need, chars, have, done, fail, cancel }
-const ltScope = S => S.id + "/" + scopeKey(S.opts);                          // 미리 받아두기가 어느 출처·범위 것인지
+const ltScope = S => S.id + "/" + scopeKey(S.opts) + "/" +                   // 미리 받아두기가 어느 출처·범위·고른 질문 것인지
+  S.sets(S.opts).map(s => s.ch + ":" + driveChosen(s.w, s.ch, S.opts).join(",")).join(";");
 function ltCard(c, tag) {                                                    // 챕터 카드 안쪽: 이모지 · Chapter 번호. 주제 · 질문 진행
   const nq = c.qs.filter(q => qDone(c, q)).length;
   return '<span class="tp-emo" aria-hidden="true">' + topicOf(c).emoji + "</span><span><b>" + esc(chapterTitle(c)) + "</b><span>질문 " + nq + "/" + c.qs.length + " 완료" + (tag || "") + "</span></span>";
@@ -3813,6 +3858,32 @@ function renderListen() {
     ? '지난 챕터가 없어요.<br><span style="color:var(--muted);font-size:14px">다음 챕터를 시작하면 지난 챕터 일기를 골라 들을 수 있어요.</span>' : "";
   $("listenPage").innerHTML = h + ltBody(S, none, '들을 문장이 없어요.<br><span style="color:var(--muted);font-size:14px">질문을 첨삭까지 끝내면(듣기 단계) 여기서 이어 들을 수 있어요.</span>');
 }
+/* 들을 질문(v21, 일기·오픽 같음): 범위 아래·속도 위. 이번/지난 챕터(회차) = 질문 전부(첨삭 전은 흐리게, 못 고름) + 전체 선택/해제,
+   전체 = 챕터(회차)마다 묶음(최신 먼저) — 첨삭 전 질문은 숨기고 묶음 머리에 "첨삭 전 n개"만. 고를 질문이 범위에 하나도 없으면 안 그림(빈 안내가 대신) */
+function ltQRow(ch, w, qid, n, on, ok) {
+  const q = Q_BY_ID[qid], ns = ok ? itPairs(w.items[qid]).filter(p => p.en).length : 0;
+  return '<button class="lt-q" role="checkbox" aria-checked="' + on + '" data-lt-q="' + esc(qid) + '" data-lt-qch="' + esc(ch) + '"' + (ok ? "" : " disabled") +
+    '><span class="lt-qc" aria-hidden="true">' + (on ? IC.check : "") + '</span><span class="lt-qt"><small>질문 ' + n + "</small><span>" + esc(q ? q.ko : "질문 " + n) +
+    '</span></span><span class="lt-qn">' + (ok ? "문장 " + ns : "첨삭 전") + "</span></button>";
+}
+function ltQsHtml(S) {
+  const o = S.opts, sets = S.sets(o);
+  if (!sets.some(s => driveFinal(s.w).length)) return "";
+  const allBtn = (s, fin, cho) => '<button class="lt-all" data-lt-allch="' + esc(s.ch) + '">' + (cho.length === fin.length ? "전체 해제" : "전체 선택") + "</button>";
+  if (o.scope !== "all") {
+    // 첨삭 전이 3개 이상이면(오픽 15문제 회차 등) 행 대신 한 줄로 — 속도·[시작]이 밀리지 않게(2026-11-21)
+    const s = sets[0], fin = driveFinal(s.w), cho = driveChosen(s.w, s.ch, o), rest = s.w.qs.length - fin.length, fold = rest >= 3;
+    return '<div class="lt-qh"><div class="sec-t">들을 질문 · ' + cho.length + "개 선택</div>" + allBtn(s, fin, cho) + '</div><div class="lt-qs">' +
+      s.w.qs.map((qid, i) => fold && !fin.includes(qid) ? "" : ltQRow(s.ch, s.w, qid, i + 1, cho.includes(qid), fin.includes(qid))).join("") + "</div>" +
+      (fold ? '<p class="lt-rest">첨삭 전 ' + rest + "개</p>" : "");
+  }
+  return '<div class="sec-t">들을 질문</div>' + sets.map(s => {
+    const fin = driveFinal(s.w), cho = driveChosen(s.w, s.ch, o), rest = s.w.qs.length - fin.length;
+    return '<div class="lt-grp"><div class="lt-gh"><span class="tp-emo" aria-hidden="true">' + (s.emoji || "") + "</span><span><b>" + esc(s.title) + "</b><small>" +
+      (fin.length ? cho.length + "개 선택" + (rest ? " · 첨삭 전 " + rest + "개" : "") : "첨삭한 질문이 없어요") + "</small></span>" + (fin.length ? allBtn(s, fin, cho) : "") + "</div>" +
+      (fin.length ? '<div class="lt-qs">' + s.w.qs.map((qid, i) => fin.includes(qid) ? ltQRow(s.ch, s.w, qid, i + 1, cho.includes(qid), true) : "").join("") + "</div>" : "") + "</div>";
+  }).join("");
+}
 /* 시작 화면 아래쪽(일기·오픽 같음): 속도 · 듣기 방식 · 반복 횟수 · 분량 · 미리 받아두기 · [시작]/[처음부터][이어 듣기]
    none = 범위에 고를 것이 없을 때 글(있으면 분량 대신), empty = 들을 문장이 없을 때 글 */
 function ltBody(S, none, empty) {
@@ -3827,7 +3898,10 @@ function ltBody(S, none, empty) {
     (o.rep > 1 ? '<p class="note lt-mode-n">문장마다 듣고 따라 말하기를 ' + o.rep + "번 반복한 뒤 다음 문장으로 가요. 질문은 한 번만 읽어요.</p>" : "");
   if (none) return h + '<div class="lt-sum">' + none + "</div>";
   const pl = buildDrive(S), ri = dvResumeIdx(pl);
-  if (!pl.items.length) return h + '<div class="lt-sum">' + empty + "</div>";
+  h = ltQsHtml(S) + h;
+  if (!pl.items.length) return h + (S.sets(o).some(s => driveFinal(s.w).length)                // 고를 수 있는데 하나도 안 고름
+    ? '<div class="lt-sum">질문을 골라 주세요</div><div class="lt-foot"><button class="go" data-lt-start="0" disabled>' + IC.play + "시작</button></div>"
+    : '<div class="lt-sum">' + empty + "</div>");
   const nSent = pl.items.reduce((a, x) => a + (x.kind === "s" ? 1 : x.kind === "p" ? x.sents.length : 0), 0), nPara = pl.items.filter(x => x.kind === "p").length;
   h += '<div class="lt-sum">질문 <b>' + pl.blocks.length + "</b>개 · 문장 <b>" + nSent + "</b>개" + (o.mode === "one" ? "" : "(문단 <b>" + nPara + "</b>개)") + " · 약 <b>" + driveMinutes(pl, settings.rate, o.mode, o.rep) + "</b>분</div>";
   h += '<div class="lt-pre">' + preHtml(S) + "</div>";
@@ -3894,6 +3968,15 @@ function ltClick(e, S) {
   if ((b = t.closest("[data-lt-scope]"))) { o.scope = b.dataset.ltScope; saveDrive(S); LT.pre = null; buzz(); S.refresh(); return true; }
   if ((b = t.closest("[data-lt-ch]"))) { o.ch = b.dataset.ltCh; saveDrive(S); LT.pre = null; buzz(); S.refresh(); return true; }
   if ((b = t.closest("[data-lt-set]"))) { o.set = b.dataset.ltSet; saveDrive(S); LT.pre = null; buzz(); S.refresh(); return true; }
+  if ((b = t.closest("[data-lt-q]")) || (b = t.closest("[data-lt-allch]"))) {         // 들을 질문(v21)
+    const ch = b.dataset.ltQch || b.dataset.ltAllch, s = S.sets(o).find(x => x.ch === ch);
+    if (!s || b.disabled) return true;
+    const fin = driveFinal(s.w), cho = driveChosen(s.w, ch, o), id = b.dataset.ltQ;
+    if (id === undefined) driveChoose(o, ch, cho.length === fin.length ? [] : "all");   // 전체 선택 = "all"(나중에 첨삭한 질문도)
+    else if (fin.includes(id)) driveChoose(o, ch, cho.includes(id) ? cho.filter(x => x !== id) : fin.filter(x => x === id || cho.includes(x)));
+    saveDrive(S); LT.pre = null; buzz(); S.refresh();
+    return true;
+  }
   if ((b = t.closest("[data-lt-mode]"))) { o.mode = b.dataset.ltMode; saveDrive(S); buzz(); S.refresh(); return true; }
   if ((b = t.closest("[data-lt-rep]"))) { o.rep = +b.dataset.ltRep; saveDrive(S); buzz(); S.refresh(); return true; }
   if ((b = t.closest("[data-rate]"))) { setRate(+b.dataset.rate); S.refresh(); return true; }
