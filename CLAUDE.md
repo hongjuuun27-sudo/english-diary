@@ -17,7 +17,7 @@ GitHub Pages로 배포하고 폰에 설치(PWA)해서 씀. 빌드 도구 없음 
 
 ## 배포할 때마다 꼭
 
-1. **`sw.js`의 `CACHE` 숫자를 올림** (`ediary-v20` → `ediary-v21` …). 안 올리면 폰에 새 버전 안내가 안 뜸.
+1. **`sw.js`의 `CACHE` 숫자를 올림** (`ediary-v21` → `ediary-v22` …). 안 올리면 폰에 새 버전 안내가 안 뜸.
 2. **인라인 스크립트를 고쳤으면 CSP 해시를 다시 계산**해서 `index.html` 맨 위 `Content-Security-Policy`의 `script-src 'sha256-…'`를 바꿈. 안 바꾸면 앱이 통째로 안 뜸.
    ```sh
    python3 - <<'EOF'
@@ -41,6 +41,9 @@ GitHub Pages로 배포하고 폰에 설치(PWA)해서 씀. 빌드 도구 없음 
 - 시작 전(글을 아직 안 씀)에는 [주제 다시 고르기] — 그 챕터를 지우고 같은 번호로 다시 고름.
 - 탭: [챕터 | 듣기 | 기록]. 듣기 범위: [이번 챕터 | 지난 챕터 | 전체].
 - 듣기 시작 화면(v21, 2026-11-21): 범위 아래 '들을 질문'에서 챕터 전체 또는 일부 질문을 고름(`ltQsHtml`, 행 `data-lt-q`·`data-lt-qch`, 전체 선택/해제 `data-lt-allch`). 최종본 있는(`hasFinal`) 질문만 고를 수 있음 — 이번/지난 챕터는 첨삭 전 질문이 1~2개면 흐린 점선 행, 3개 이상이면 행 없이 목록 아래 "첨삭 전 n개" 한 줄, 전체는 챕터마다 묶고 첨삭 전은 숨김(머리에 개수). 저장 `opts.qs[챕터 id]` = `"all"`(전체 선택 · 없음도 같음 — 나중에 첨삭한 질문도 들어감) | `[질문 id]`(개별 토글). 헬퍼 `driveSel`·`driveChosen`·`driveChoose`, 재생 목록(`buildDrive*`)·미리 받아두기·요약이 같이 씀. 하나도 안 고르면 "질문을 골라 주세요" + [시작] 비활성. 오픽도 같음(챕터 = 회차).
+- 듣기 방식 세 가지(v22, 2026-11-21 — `opts.mode`, 일기·오픽 같음, 세그먼트 `.seg3`): [끊지 않고 듣기 `flow`(문단) | 따라 말하기 `one`(문장 → 그 길이만큼 쉼, 1.2~12초 캡) | 먼저 말하기 `first`]. 반복 1·3·5는 `one`·`first`.
+  먼저 말하기(한글 있는 문장만 — 한글 없는 문장은 따라 말하기처럼, 질문은 한 번 읽고 말할 시간 없음): `createReader`의 문장 앞 훅 `before` → `dvBefore` = 영어를 가리고(`.dv-cur.quiz`) 그 자리에 링(`.dv-say`·`.dv-ring`, 남은 초) + 한글 크게 → 한글 읽기 `Player.sayKo`(폰 기본 **한국어** 음성 `ko-KR`이 있을 때만 — ElevenLabs 영어 목소리엔 한글을 안 넣음, 없으면 화면에만, `Player.hasKo()`) → `dvFirstWait`(말할 시간) → 영어. 반복은 `again` → (말할 시간 → 영어), 한글은 문장당 한 번.
+  말할 시간 = `Player.clipDuration(text, rate, fetch)` → `{ sec, estimated }`: 키가 있으면 ElevenLabs 클립(없으면 그때 받음)의 실제 길이(audio metadata → 글자 시간표 끝) ÷ 속도, 아니면 `단어 수 / 2.5 / 속도`. **캡 없음**(최소 1초), 한글 읽는 시간은 안 셈. 다음 줄 미리보기·잠금화면 제목은 기다리는 동안 한글(답이 안 보이게). 요약 '약 n분'에 한글 읽기 + 말할 시간 반영(`dvKoSec`). 테스트용 `window.__dvFirstLog`(최근 40개 `{ text, clipSec, gapMs, estimated, r }`).
 
 ## 질문 진행 4단계 (2026-11-17 리디자인 — 일기·오픽 같은 막대·부품, 예전 일기 7단계·오픽 5단계를 바꿈)
 
@@ -111,7 +114,7 @@ GitHub Pages로 배포하고 폰에 설치(PWA)해서 씀. 빌드 도구 없음 
 | `ediary.chapters.v1.broken` | 챕터 저장이 깨져서 읽지 못했을 때 그 글을 남겨 둠 |
 | `ediary.opic.v1` | 오픽 모의고사 기록 `{ v, cur, sets: { 회차 id: { id, qs, items, started } } }` — 항목 = `{ step, text, copied, raw, pairs, flow, rc?(옛 암송), spoke?: { sec, on, mode }, doneOn }`. 깨지면 `.broken`에 남김 |
 | `ediary.mode.v1` | 마지막 모드 `"diary"` / `"opic"` |
-| `ediary.drive.v1` | 듣기 탭 설정(`qs` = 챕터별 들을 질문 `"all"`/`[id]` — v21)·이어 듣기 위치(`key` = `챕터 id|질문 id|문장`) |
+| `ediary.drive.v1` | 듣기 탭 설정(`mode` flow/one/first — first는 v22 · `qs` = 챕터별 들을 질문 `"all"`/`[id]` — v21)·이어 듣기 위치(`key` = `챕터 id|질문 id|문장`) |
 | `ediary.opic.drive.v1` | 오픽 듣기 설정(`scope` cur/pick/all · `set` 고른 회차 · `mode` · `rep` · `qs` 회차별 들을 질문)·이어 듣기 위치(`key` = `회차 id|문제 id|문장`) |
 | `ediary.settings.v1` | API 키·목소리(`voice`, 직접 넣은 `voiceId`)·속도(`rate` — 듣기 탭·챕터 복습)·글자 크기·진행 화면 듣기 속도 `lsRate`(0.75/1/1.25)·한 문장 반복 `lsRep`·③④ 문장 버전 `ver7`(fin/nat)·④ 말하기 방식 `spk4`(ko/kw — 2026-11-17). API 키는 이 폰에만 — 코드·저장소에 절대 넣지 않음(백업 파일에는 들어감) |
 
