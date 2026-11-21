@@ -44,6 +44,7 @@ GitHub Pages로 배포하고 폰에 설치(PWA)해서 씀. 빌드 도구 없음 
 - 듣기 방식 세 가지(v22, 2026-11-21 — `opts.mode`, 일기·오픽 같음, 세그먼트 `.seg3`): [끊지 않고 듣기 `flow`(문단) | 따라 말하기 `one`(문장 → 그 길이만큼 쉼, 1.2~12초 캡) | 먼저 말하기 `first`]. 반복 1·3·5는 `one`·`first`.
   먼저 말하기(한글 있는 문장만 — 한글 없는 문장은 따라 말하기처럼, 질문은 한 번 읽고 말할 시간 없음): `createReader`의 문장 앞 훅 `before` → `dvBefore` = 영어를 가리고(`.dv-cur.quiz`) 그 자리에 링(`.dv-say`·`.dv-ring`, 남은 초) + 한글 크게 → 한글 읽기 `Player.sayKo`(폰 기본 **한국어** 음성 `ko-KR`이 있을 때만 — ElevenLabs 영어 목소리엔 한글을 안 넣음, 없으면 화면에만, `Player.hasKo()`) → `dvFirstWait`(말할 시간) → 영어. 반복은 `again` → (말할 시간 → 영어), 한글은 문장당 한 번.
   말할 시간 = `Player.clipDuration(text, rate, fetch)` → `{ sec, estimated }`: 키가 있으면 ElevenLabs 클립(없으면 그때 받음)의 실제 길이(audio metadata → 글자 시간표 끝) ÷ 속도, 아니면 `단어 수 / 2.5 / 속도`. **캡 없음**(최소 1초), 한글 읽는 시간은 안 셈. 다음 줄 미리보기·잠금화면 제목은 기다리는 동안 한글(답이 안 보이게). 요약 '약 n분'에 한글 읽기 + 말할 시간 반영(`dvKoSec`). 테스트용 `window.__dvFirstLog`(최근 40개 `{ text, clipSec, gapMs, estimated, r }`).
+- 재생 화면 토스트(v22, 2026-11-21): `.toast` 기본 자리는 탭 바 위 110px인데 드라이브 조작 줄이 훨씬 높아서 일시정지 버튼 뒤에 겹쳤음 → `toastPlace()`가 `#drive`가 열려 있으면 `--toast-b` = 상태 글(`#dvNote`) 위쪽 + 14px(실제 높이를 잼, `toast()`·`dvPaint`·`dvHide`·resize에서), 닫히면 110px. `.dv-note`·`.dv-ctl`은 불투명 바닥(`--bg`) + `z-index:1`.
 
 ## 질문 진행 4단계 (2026-11-17 리디자인 — 일기·오픽 같은 막대·부품, 예전 일기 7단계·오픽 5단계를 바꿈)
 
